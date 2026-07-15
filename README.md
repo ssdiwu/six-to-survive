@@ -1,4 +1,4 @@
-# Nine to Survive · 撑到六点
+# Six to Survive · 撑到六点
 
 > 飞书消息从四面八方涌来，你在工位上疯狂敲键盘清活、甩锅、摸鱼，撑到 18:00 下班就算赢。
 
@@ -25,7 +25,7 @@ python3 -m http.server 8000
 ## 目录
 
 ```
-nine-to-survive/
+six-to-survive/
 ├── index.html          # 单文件入口（最终交付）
 ├── scripts/            # 开发期按需创建的 JS 模块，最终合入 index.html
 ├── styles/             # 开发期按需创建的样式，最终合入 index.html

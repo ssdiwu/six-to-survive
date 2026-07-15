@@ -2,7 +2,7 @@
 
 ## 项目定位
 
-《Nine to Survive · 撑到六点》是浏览器 2D 弹幕 Roguelike 独立小游戏，用于豆包 Seed-Evolving 模型开发者测评。核心目标：让 AI Coding 模型（在 TRAE 中调用 Evolving API）一次成型交付完整可玩的单文件网页游戏。
+《Six to Survive · 撑到六点》是浏览器 2D 弹幕 Roguelike 独立小游戏，用于豆包 Seed-Evolving 模型开发者测评。核心目标：让 AI Coding 模型（在 TRAE 中调用 Evolving API）一次成型交付完整可玩的单文件网页游戏。
 
 当前处于 **v0.1 规格基线**：PRD 已完成，`index.html` 仍是待开发的 Canvas 骨架。不要把文档中的目标能力误判为已经实现。
 

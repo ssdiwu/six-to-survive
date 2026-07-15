@@ -1,4 +1,4 @@
-# PRD：Nine to Survive · 撑到六点
+# PRD：Six to Survive · 撑到六点
 
 > 版本：v0.1（MVP 规格）
 > 最后更新：2026-07-16
