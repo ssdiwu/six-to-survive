@@ -56,9 +56,9 @@ const TIME = {
 };
 
 const ENEMIES = {
-  im:       { name: '飞书IM',   hp: 1, speed: 2.2, damage: 5,  size: 12, color: COLORS.feishuBlue, label: '' },
-  meeting:  { name: '会议邀请', hp: 4, speed: 0.9, damage: 0,  size: 26, color: COLORS.purple,     label: '📅', stun: 1.0 },
-  colleague:{ name: '同事@你',  hp: 2, speed: 1.5, damage: 6,  size: 16, color: COLORS.green,      label: '❓' },
+  im:       { name: '飞书IM',   hp: 1, speed: 2.2, damage: 5,  size: 12, color: COLORS.feishuBlue, label: '', texts: ['在吗？','看一下消息','麻烦回复下','这个很急','今天能给吗','有空吗','在？','急！','请确认','反馈一下','同步下进度','过一下方案','帮忙看下','review 一下','？？','收到请回复'] },
+  meeting:  { name: '会议邀请', hp: 4, speed: 0.9, damage: 0,  size: 26, color: COLORS.purple,     label: '📅', stun: 1.0, texts: ['周会同步','需求评审','紧急拉群','项目对齐会','问题复盘','季度规划','1:1 沟通','进度 standup'] },
+  colleague:{ name: '同事@你',  hp: 2, speed: 1.5, damage: 6,  size: 16, color: COLORS.green,      label: '❓', texts: ['帮我看下这个','这个咋弄啊','你有这个文档吗','帮我 review 下','代码跑不起来','这个接口对吗','你那边能复现不','请教个问题'] },
 };
 
 const ITEMS = {
@@ -223,18 +223,26 @@ function spawnEnemy(type) {
   const dx = ws.cx - x, dy = ws.cy - y;
   const len = Math.sqrt(dx*dx + dy*dy) || 1;
   const speedMult = game.finalRush ? 1.0 : 1.0;
+  const texts = cfg.texts || [''];
+  const text = texts[randInt(0, texts.length - 1)];
+  // 气泡宽度根据文字长度计算
+  ctx.font = '13px -apple-system, "PingFang SC", sans-serif';
+  const tw = ctx.measureText(text).width;
+  const bw = Math.max(cfg.size * 2.5, tw + 20);
+  const bh = cfg.size * 1.8;
   game.enemies.push({
     type, x, y,
     vx: dx/len * cfg.speed * speedMult,
     vy: dy/len * cfg.speed * speedMult,
     hp: cfg.hp, maxHp: cfg.hp,
-    size: cfg.size,
+    size: cfg.size, bw, bh,
     color: cfg.color,
     damage: cfg.damage,
     label: cfg.label,
     stun: cfg.stun || 0,
     friendly: false,
     life: 0,
+    text,
   });
 }
 
@@ -399,6 +407,7 @@ function pickLevelCard(idx) {
 function endGame(won, reason) {
   game.won = won;
   game.gameOverReason = reason || (won ? '下班成功' : '加班猝死');
+  game.endTime = performance.now() / 1000;
   game.state = State.GAME_OVER;
 }
 
@@ -535,7 +544,9 @@ function tick(dt) {
           if (j === i) continue;
           const other = game.enemies[j];
           if (other.friendly || other.fleeing) continue;
-          if (dist(e.x, e.y, other.x, other.y) < e.size + other.size) {
+          const er = Math.max(e.bw || e.size*2.5, e.bh || e.size*1.8) / 2;
+          const or = Math.max(other.bw || other.size*2.5, other.bh || other.size*1.8) / 2;
+          if (dist(e.x, e.y, other.x, other.y) < er + or) {
             other.hp -= e.damage;
             spawnParticles(other.x, other.y, COLORS.orange, `-${Math.round(e.damage)}`, 0.8);
             if (other.hp <= 0) {
@@ -611,7 +622,8 @@ function tick(dt) {
     for (let j = game.enemies.length - 1; j >= 0; j--) {
       const e = game.enemies[j];
       if (e.friendly || e.fleeing) continue;
-      if (dist(b.x, b.y, e.x, e.y) < e.size + 8) {
+      const er = Math.max(e.bw || e.size*2.5, e.bh || e.size*1.8) / 2;
+      if (dist(b.x, b.y, e.x, e.y) < er + 8) {
         e.hp -= b.damage;
         spawnParticles(e.x, e.y, COLORS.white, `-${Math.round(b.damage)}`, 0.5);
         game.bullets.splice(i, 1);
@@ -862,36 +874,61 @@ function drawPlayer() {
 
 function drawEnemies() {
   for (const e of game.enemies) {
-    // 气泡
-    ctx.fillStyle = e.color;
-    ctx.beginPath();
-    ctx.arc(e.x, e.y, e.size, 0, Math.PI*2);
-    ctx.fill();
-    // 白边
-    ctx.strokeStyle = e.friendly ? COLORS.orange : COLORS.white;
+    const bw = e.bw || e.size * 2.5;
+    const bh = e.bh || e.size * 1.8;
+    if (e.friendly) {
+      // 友方穿透弹：橙色高亮气泡
+      ctx.fillStyle = 'rgba(209,154,102,0.15)';
+      ctx.strokeStyle = COLORS.orange;
+    } else {
+      ctx.fillStyle = e.color;
+      ctx.strokeStyle = COLORS.white;
+    }
     ctx.lineWidth = 2;
+    // 圆角矩形气泡
+    ctx.beginPath();
+    ctx.roundRect(e.x - bw/2, e.y - bh/2, bw, bh, 8);
+    ctx.fill();
     ctx.stroke();
-    // 标签
+    // 左侧头像色块
+    const avatarSize = bh * 0.55;
+    ctx.fillStyle = e.friendly ? COLORS.orange : 'rgba(255,255,255,0.25)';
+    ctx.beginPath();
+    ctx.roundRect(e.x - bw/2 + 4, e.y - avatarSize/2, avatarSize, avatarSize, 4);
+    ctx.fill();
     if (e.label) {
-      ctx.font = `${e.size}px sans-serif`;
+      ctx.font = `${Math.min(avatarSize, 14)}px sans-serif`;
       ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-      ctx.fillText(e.label, e.x, e.y);
+      ctx.fillStyle = COLORS.white;
+      ctx.fillText(e.label, e.x - bw/2 + 4 + avatarSize/2, e.y);
+    }
+    // 文字内容
+    if (e.text && !e.friendly) {
+      ctx.fillStyle = 'rgba(255,255,255,0.92)';
+      ctx.font = '12px -apple-system, "PingFang SC", sans-serif';
+      ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+      ctx.fillText(e.text, e.x - bw/2 + 4 + avatarSize + 4, e.y, bw - avatarSize - 12);
+    } else if (e.friendly) {
+      ctx.fillStyle = COLORS.orange;
+      ctx.font = '11px sans-serif';
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.fillText('🍳 甩', e.x, e.y);
     }
     // HP 条（多血敌人）
-    if (e.maxHp > 1 && !e.friendly) {
-      const barW = e.size * 2;
+    if (e.maxHp > 1 && !e.friendly && !e.fleeing) {
+      const barW = bw;
       ctx.fillStyle = COLORS.border;
-      ctx.fillRect(e.x - barW/2, e.y - e.size - 8, barW, 4);
+      ctx.fillRect(e.x - barW/2, e.y - bh/2 - 8, barW, 3);
       ctx.fillStyle = COLORS.green;
-      ctx.fillRect(e.x - barW/2, e.y - e.size - 8, barW * (e.hp/e.maxHp), 4);
+      ctx.fillRect(e.x - barW/2, e.y - bh/2 - 8, barW * (e.hp/e.maxHp), 3);
     }
     // 进入工位高亮
     const ws = workspaceRect();
     if (!e.friendly && !e.fleeing && e.x > ws.x && e.x < ws.x+ws.w && e.y > ws.y && e.y < ws.y+ws.h) {
       ctx.strokeStyle = COLORS.red;
-      ctx.lineWidth = 1;
+      ctx.lineWidth = 2;
       ctx.beginPath();
-      ctx.arc(e.x, e.y, e.size + 4, 0, Math.PI*2);
+      ctx.roundRect(e.x - bw/2 - 3, e.y - bh/2 - 3, bw + 6, bh + 6, 10);
       ctx.stroke();
     }
   }
@@ -1189,7 +1226,8 @@ function drawGameOverScreen() {
   }
 
   // 统计
-  const dur = (performance.now()/1000 - game.startTime);
+  const endT = game.endTime || (performance.now()/1000);
+  const dur = (endT - game.startTime);
   const mins = Math.floor(dur / 60), secs = Math.floor(dur % 60);
   ctx.fillStyle = COLORS.white;
   ctx.font = '18px -apple-system, sans-serif';
