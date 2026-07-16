@@ -744,6 +744,7 @@ function onMouseClick(e) {
   } else if (game.state === State.GAME_OVER) {
     if (pointInRect(mx, my, btnRestartRect())) { startGame(); }
     else if (pointInRect(mx, my, btnTitleRect())) { game = newGame(); }
+    else if (pointInRect(mx, my, btnShareRect())) { exportShareCard(); }
   } else if (game.state === State.LEVEL_UP) {
     // 点击卡片
     const cards = levelCardRects();
@@ -787,8 +788,9 @@ resize();
 function btnStartRect() { const w=240, h=56; return { x: W/2-w/2, y: H/2+60, w, h }; }
 function btnResumeRect() { const w=200, h=48; return { x: W/2-w/2, y: H/2, w, h }; }
 function btnQuitRect() { const w=200, h=48; return { x: W/2-w/2, y: H/2+70, w, h }; }
-function btnRestartRect() { const w=200, h=48; return { x: W/2-w/2, y: H/2+80, w, h }; }
-function btnTitleRect() { const w=200, h=48; return { x: W/2-w/2, y: H/2+140, w, h }; }
+function btnRestartRect() { const w=200, h=48; return { x: W/2-w/2-220, y: H/2+80, w, h }; }
+function btnTitleRect() { const w=200, h=48; return { x: W/2-w/2+220, y: H/2+80, w, h }; }
+function btnShareRect() { const w=200, h=48; return { x: W/2-w/2, y: H/2+140, w, h }; }
 
 function pointInRect(px, py, r) { return px >= r.x && px <= r.x+r.w && py >= r.y && py <= r.y+r.h; }
 
@@ -1246,9 +1248,94 @@ function drawGameOverScreen() {
     ctx.fillText('你发送了一条飞书消息——"我先下班了，周末不看飞书 👋"', W/2, H/2 + 110);
   }
 
-  const br = btnRestartRect(), bt = btnTitleRect();
+  const br = btnRestartRect(), bt = btnTitleRect(), bs = btnShareRect();
   drawButton(br, '再来一局', pointInRect(mouseX, mouseY, br));
   drawButton(bt, '回到标题', pointInRect(mouseX, mouseY, bt));
+  drawButton(bs, '📸 保存战绩图', pointInRect(mouseX, mouseY, bs), COLORS.feishuBlue);
+}
+
+function exportShareCard() {
+  // 1200x630 社交卡片标准尺寸
+  const W = 1200, H = 630;
+  const c = document.createElement('canvas');
+  c.width = W; c.height = H;
+  const x = c.getContext('2d');
+
+  // 背景
+  x.fillStyle = '#0d1117';
+  x.fillRect(0, 0, W, H);
+  // 顶部色带
+  const grad = x.createLinearGradient(0, 0, W, 0);
+  grad.addColorStop(0, '#3370ff');
+  grad.addColorStop(1, game.won ? '#98c379' : '#e06c75');
+  x.fillStyle = grad;
+  x.fillRect(0, 0, W, 8);
+
+  x.fillStyle = '#e6edf3';
+  x.textAlign = 'left'; x.textBaseline = 'top';
+
+  // 标题
+  x.font = 'bold 56px -apple-system, "PingFang SC", sans-serif';
+  x.fillText('Six to Survive · 撑到六点', 60, 60);
+  x.font = '28px -apple-system, "PingFang SC", sans-serif';
+  x.fillStyle = game.won ? '#98c379' : '#e06c75';
+  x.fillText(game.won ? '✓ 下班成功！' : (game.gameOverReason === '精神崩溃' ? '😵 精神崩溃' : '☠️ 加班猝死'), 60, 140);
+
+  // 分隔线
+  x.strokeStyle = '#30363d';
+  x.lineWidth = 2;
+  x.beginPath(); x.moveTo(60, 200); x.lineTo(W-60, 200); x.stroke();
+
+  // 统计数据网格
+  const endT = game.endTime || (performance.now()/1000);
+  const dur = endT - game.startTime;
+  const mins = Math.floor(dur/60), secs = Math.floor(dur%60);
+  const stats = [
+    ['存活到', formatGameTime(Math.min(game.gameMinute, TIME.endHour*60))],
+    ['本局时长', `${mins}:${String(secs).padStart(2,'0')}`],
+    ['击杀消息', `${game.kills} 条`],
+    ['道具使用', `${game.itemUses} 次`],
+    ['获得词条', `${game.level} 个`],
+    ['最高连击', `${game.maxCombo}`],
+  ];
+  x.font = '20px -apple-system, "PingFang SC", sans-serif';
+  x.fillStyle = '#8b949e';
+  const colW = (W - 120) / 3;
+  stats.forEach((s, i) => {
+    const col = i % 3, row = Math.floor(i / 3);
+    const sx = 60 + col * colW, sy = 230 + row * 120;
+    x.fillStyle = '#8b949e';
+    x.font = '20px -apple-system, "PingFang SC", sans-serif';
+    x.fillText(s[0], sx, sy);
+    x.fillStyle = '#e6edf3';
+    x.font = 'bold 42px -apple-system, "PingFang SC", sans-serif';
+    x.fillText(s[1], sx, sy + 32);
+  });
+
+  // 底部彩蛋
+  x.font = '18px -apple-system, "PingFang SC", sans-serif';
+  x.fillStyle = '#56b6c2';
+  if (game.won) {
+    x.fillText('我先下班了，周末不看飞书 👋', 60, H - 60);
+  } else {
+    x.fillText('你的工位亮了一整夜。', 60, H - 60);
+  }
+  x.fillStyle = '#30363d';
+  x.textAlign = 'right';
+  x.fillText('Six to Survive  v0.0.1', W - 60, H - 60);
+
+  // 触发下载
+  c.toBlob(blob => {
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `six-to-survive-${game.won ? 'win' : 'lose'}-${Date.now()}.png`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    spawnParticles(W/2, H/2 - 40, COLORS.green, '📸 战绩图已保存', 2);
+  }, 'image/png');
 }
 
 function lerpColor(c1, c2, t) {
