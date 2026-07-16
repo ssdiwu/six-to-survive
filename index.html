@@ -43,12 +43,16 @@ const COLORS = {
 };
 
 const PLAYER = {
-  maxHp: 100, maxSan: 100, maxEnergy: 100, maxKpi: 100,
-  startKpi: 50,
+  maxPressure: 100, maxEnergy: 100, maxGrad: 100,
+  startGrad: 30,
   baseDamage: 1,
   baseAtkSpeed: 7,
-  energyCostPerKey: 1,
-  energyRegenPerSec: 1.5,
+  energyCostPerKey: 1.2,
+  energyRegenPerSec: 1.0,
+  pressureIdleFall: 0.8,     // 不打字时每秒压力降
+  gradRisePerSec: 5,        // 不打字时毕业进度每秒涨
+  gradFallPerKey: 2,        // 每敲一键毕业进度降
+  gradFallPerSec: 3,        // 打字期间毕业进度每秒降
   workspaceRatio: 0.25,
 };
 
@@ -59,12 +63,12 @@ const TIME = {
 };
 
 const ENEMIES = {
-  im:       { name: '飞书IM',   hp: 2, speed: 2.4, damage: 6,  size: 12, color: COLORS.feishuBlue, label: '', texts: ['在吗？','看一下消息','麻烦回复下','这个很急','今天能给吗','有空吗','在？','急！','请确认','反馈一下','同步下进度','过一下方案','帮忙看下','review 一下','？？','收到请回复','对下方案','这个谁负责','你看下群','拉个会','催一下','对齐一下','跟进下','在忙吗','能来一下吗','文档看了吗','帮忙加个班','今晚上线','今天能好吗','谁接这个需求','发一下周报','同步下进展','老板问了','客户在催','明天汇报','出个差','加个需求','改个样式','过下文案','做个 PPT','写个文档','开个单','发个版本','回个邮件','登一下 VPN','看下报警','群里 at 你了','@ 所有人','帮忙顶一下','这轮谁 oncall','回归测一下','帮忙找下 bug','看下日志','这个 case 看了吗','对齐 OKR','下周要汇报','复盘写了吗','需求评审了吗','排期给一下','方案过一下','明天开会','今晚要发版','帮忙补个文档','看下邮件','帮忙合一下 MR','帮忙 review PR','上环境了','回滚一下','线上出事了','快回群里','等你回复','方便接电话吗','语音一下','同步会议纪要','看下周报','季度总结写了吗','提测了吗','过下验收标准','今天能提测吗','这是 P0','帮忙做个表','对下数据','盘一下库存','看下监控','大盘红了','告警 100+','故障群拉了','客户投诉了','老板找你','HR 找你','财务找你','行政找你','周会开了吗','月报写了吗','年会报名了吗','团建你去吗','体检做了吗','发票贴了吗','报销交了吗','审批到你了','权限开了吗'] },
-  meeting:  { name: '会议邀请', hp: 8, speed: 0.9, damage: 0,  size: 26, color: COLORS.purple,     label: '📅', stun: 1.0, texts: ['周会同步','需求评审','紧急拉群','项目对齐会','问题复盘','季度规划','1:1 沟通','进度 standup','头脑风暴','复盘会',' kickoff','需求澄清','技术评审','方案评审','排期对齐'] },
-  colleague:{ name: '同事@你',  hp: 3, speed: 1.6, damage: 7,  size: 16, color: COLORS.green,      label: '❓', texts: ['帮我看下这个','这个咋弄啊','你有这个文档吗','帮我 review 下','代码跑不起来','这个接口对吗','你那边能复现不','请教个问题','帮忙改下','线上出bug了','你改了什么','谁动了我代码','这个需求谁接','我本地是好的'] },
-  comment:  { name: '文档@评论', hp: 5, speed: 1.2, damage: 9, size: 18, color: COLORS.yellow, label: '@', texts: ['这里改一下','参考下竞品','样式不对','逻辑不通','再改改','没对齐设计稿','明天上线','评论下','这体验不好','按钮不明显','文案改一下','设计稿更新了','逻辑有问题','要重新排期','今晚能好吗'] },
-  approval: { name: '审批待办', hp: 3, speed: 0.8, damage: 0, size: 18, color: '#8b949e', label: '✓', texts: ['报销审批','合同审批','权限申请','用印申请','付款审批','休假审批','出差申请','采购审批','预算审批','资产申请','账号申请','门禁申请'] },
-  okr:      { name: 'OKR对齐',  hp: 15, speed: 0.7, damage: 16, size: 32, color: COLORS.red, label: '🎯', texts: ['季末对齐','OKR Review','目标复盘','绩效评估','季度总结','360评估','年终汇报','晋升答辩','述职报告','绩效沟通','战略对齐','部门 review'] },
+  im:       { name: '飞书IM',   hp: 3, speed: 2.4, damage: 6,  size: 12, color: COLORS.feishuBlue, label: '', texts: ['在吗？','看一下消息','麻烦回复下','这个很急','今天能给吗','有空吗','在？','急！','请确认','反馈一下','同步下进度','过一下方案','帮忙看下','review 一下','？？','收到请回复','对下方案','这个谁负责','你看下群','拉个会','催一下','对齐一下','跟进下','在忙吗','能来一下吗','文档看了吗','帮忙加个班','今晚上线','今天能好吗','谁接这个需求','发一下周报','同步下进展','老板问了','客户在催','明天汇报','出个差','加个需求','改个样式','过下文案','做个 PPT','写个文档','开个单','发个版本','回个邮件','登一下 VPN','看下报警','群里 at 你了','@ 所有人','帮忙顶一下','这轮谁 oncall','回归测一下','帮忙找下 bug','看下日志','这个 case 看了吗','对齐 OKR','下周要汇报','复盘写了吗','需求评审了吗','排期给一下','方案过一下','明天开会','今晚要发版','帮忙补个文档','看下邮件','帮忙合一下 MR','帮忙 review PR','上环境了','回滚一下','线上出事了','快回群里','等你回复','方便接电话吗','语音一下','同步会议纪要','看下周报','季度总结写了吗','提测了吗','过下验收标准','今天能提测吗','这是 P0','帮忙做个表','对下数据','盘一下库存','看下监控','大盘红了','告警 100+','故障群拉了','客户投诉了','老板找你','HR 找你','财务找你','行政找你','周会开了吗','月报写了吗','年会报名了吗','团建你去吗','体检做了吗','发票贴了吗','报销交了吗','审批到你了','权限开了吗'] },
+  meeting:  { name: '会议邀请', hp: 12, speed: 0.9, damage: 0,  size: 26, color: COLORS.purple,     label: '📅', stun: 1.0, texts: ['周会同步','需求评审','紧急拉群','项目对齐会','问题复盘','季度规划','1:1 沟通','进度 standup','头脑风暴','kickoff','需求澄清','技术评审','方案评审','排期对齐','站会','晨会','晚会','周报同步','月度复盘','OKR 对齐','预评审','会后会','对齐会','同步会','需求宣讲','架构评审','事故复盘','复盘会','立项会','验收会','总结会','庆功会'] },
+  colleague:{ name: '同事@你',  hp: 4, speed: 1.6, damage: 7,  size: 16, color: COLORS.green,      label: '❓', texts: ['帮我看下这个','这个咋弄啊','你有这个文档吗','帮我 review 下','代码跑不起来','这个接口对吗','你那边能复现不','请教个问题','帮忙改下','线上出 bug 了','你改了什么','谁动了我代码','这个需求谁接','我本地是好的','帮我查下日志','这个 case 看了吗','帮我合下 MR','环境挂了','回归一下','谁部署的','为什么回滚','有报错截图吗','复现步骤是','你这什么分支','帮我拉下分支','怎么本地又挂了','接口超时了','配置没改吧','密钥失效了','帮我开下权限'] },
+  comment:  { name: '文档@评论', hp: 7, speed: 1.2, damage: 9, size: 18, color: COLORS.yellow, label: '@', texts: ['这里改一下','参考下竞品','样式不对','逻辑不通','再改改','没对齐设计稿','明天上线','评论下','这体验不好','按钮不明显','文案改一下','设计稿更新了','逻辑有问题','要重新排期','今晚能好吗','用户反馈的','这个太复杂','能不能简单点','交互不对','字号太小','颜色不好看','间距调一下','弹窗太丑','文案不通顺','逻辑有漏洞','体验不顺滑','再出个方案','再给个版本','重新想想','这个先不做','需求变了','再评审下'] },
+  approval: { name: '审批待办', hp: 4, speed: 0.8, damage: 0, size: 18, color: '#8b949e', label: '✓', texts: ['报销审批','合同审批','权限申请','用印申请','付款审批','休假审批','出差申请','采购审批','预算审批','资产申请','账号申请','门禁申请','离职交接','入职审批','转正申请','调岗申请','晋升答辩','调薪申请','加班审批','补卡申请','请假审批','外出申请','用车申请','招待申请','会议申请','培训申请','招聘审批','背调授权','设备申请','网络开通'] },
+  okr:      { name: 'OKR对齐',  hp: 20, speed: 0.7, damage: 16, size: 32, color: COLORS.red, label: '🎯', texts: ['季末对齐','OKR Review','目标复盘','绩效评估','季度总结','360评估','年终汇报','晋升答辩','述职报告','绩效沟通','战略对齐','部门 review','半年评估','目标拆解','KR 对齐','绩效校准','人才盘点','组织调整','战略解码','目标对齐会','季度规划','年度规划','战略复盘','能力评估','述职评审','绩效反馈','调薪评估','奖金评定','职级晋升','发展计划'] },
 };
 
 const ITEMS = {
@@ -82,29 +86,29 @@ const UPGRADES = [
   { id:'dual_mon',  name:'双显示器',   tier:'common', desc:'字符弹伤害+1',    apply:s=>s.damageBonus+=1 },
   { id:'thermos',   name:'保温杯',     tier:'common', desc:'精力回复+30%',    apply:s=>s.energyRegenMult*=1.3 },
   { id:'charger',   name:'备用充电器', tier:'common', desc:'精力上限+20',     apply:s=>{s.maxEnergyBonus+=20;s.energy+=20;} },
-  { id:'plant',     name:'工位绿植',   tier:'common', desc:'SAN上限+20 每秒回1SAN', apply:s=>{s.maxSanBonus+=20;s.san+=20;s.sanRegenPerSec+=1;} },
+  { id:'plant',     name:'工位绿植',   tier:'common', desc:'压力上限+20 每秒降压', apply:s=>{s.maxPressureBonus+=20;s.pressure=Math.max(0,s.pressure-20);s.pressureRegenPerSec+=1;} },
   { id:'ignore',    name:'已读不回',   tier:'common', desc:'IM消息伤害-20%',  apply:s=>s.imDamageMult*=0.8 },
   { id:'standup_c', name:'站会',       tier:'common', desc:'攻速+10%',        apply:s=>s.atkMult*=1.1 },
   { id:'pen',       name:'按动中性笔', tier:'common', desc:'击杀回2精力',     apply:s=>s.energyOnKill=2 },
-  { id:'notebook',  name:'效率笔记本', tier:'common', desc:'击杀回1SAN',      apply:s=>s.sanOnKill=1 },
+  { id:'notebook',  name:'效率笔记本', tier:'common', desc:'击杀减1压力',      apply:s=>s.pressureOnKill=1 },
   // Rare
   { id:'addict',    name:'咖啡成瘾',   tier:'rare',   desc:'精力<30时攻速翻倍(30sCD)', apply:s=>s.coffeeAddict=true },
   { id:'blame_mstr',name:'甩锅大师',   tier:'rare',   desc:'甩锅贴反伤+50%',  apply:s=>s.blameDamageMult*=1.5 },
-  { id:'stable',    name:'情绪稳定器', tier:'rare',   desc:'SAN<30仍可打字',   apply:s=>s.stableMind=true },
-  { id:'meeting_f', name:'会议摸鱼',   tier:'rare',   desc:'硬直期间回SAN',    apply:s=>s.sanRegenPerSec+=0.5 },
+  { id:'stable',    name:'情绪稳定器', tier:'rare',   desc:'压力高仍可打字',   apply:s=>s.stableMind=true },
+  { id:'meeting_f', name:'会议摸鱼',   tier:'rare',   desc:'硬直期间减压力',    apply:s=>s.pressureRegenPerSec+=0.5 },
   { id:'req_log',   name:'需求记录员', tier:'rare',   desc:'@评论小弹-80%',   apply:s=>s.commentDamageMult*=0.2 },
   { id:'headphone_u',name:'耳机降噪',  tier:'rare',   desc:'左侧弹幕-30%',    apply:s=>s.headphoneBonus=true },
   { id:'ppt_armor_u',name:'PPT装甲',   tier:'rare',   desc:'受伤20%获护盾',    apply:s=>s.pptArmorChance=(s.pptArmorChance||0)+0.2 },
   { id:'async_c',   name:'异步沟通',   tier:'rare',   desc:'审批扣精力-50%',  apply:s=>s.approvalDrainMult=0.5 },
   // Epic
-  { id:'burn_mid',  name:'熬夜修仙',   tier:'epic',   desc:'精力=0仍可打字 每键扣1SAN', apply:s=>s.burnMidnight=true },
+  { id:'burn_mid',  name:'熬夜修仙',   tier:'epic',   desc:'体力=0仍可打字 每键+1压力', apply:s=>s.burnMidnight=true },
   { id:'muscle',    name:'996肌肉记忆',tier:'epic',   desc:'17:00后攻速+50%', apply:s=>s.muscleMemory=true },
   { id:'silent_upg',name:'全公司静默升级',tier:'epic',desc:'升级后3秒无敌',  apply:s=>s.upgradeShield=true },
   { id:'req_arch',  name:'需求考古学', tier:'epic',   desc:'@评论伤害-80%',   apply:s=>s.commentDamageMult*=0.2 },
   { id:'ceo_shadow',name:'老板附体',   tier:'epic',   desc:'伤害+20%',         apply:s=>{s.atkMult*=1.2;s.damageBonus+=1;} },
   // Legendary
   { id:'report',    name:'周报外挂',   tier:'legendary', desc:'甩锅贴刷新CD', apply:s=>s.weeklyReport=true },
-  { id:'equity_l',  name:'股权承诺书', tier:'legendary', desc:'摸鱼不掉KPI', apply:s=>s.kpiNoDrop=true },
+  { id:'equity_l',  name:'股权承诺书', tier:'legendary', desc:'摸鱼不掉KPI', apply:s=>s.gradNoDrop=true },
   { id:'double_pick',name:'双选',      tier:'legendary', desc:'升级偶尔多拿1张',apply:s=>s.doubleItem=true },
 ];
 
@@ -139,28 +143,28 @@ function newGame() {
     gameMinute: TIME.startHour * 60,
     player: {
       x: 0, y: 0,
-      hp: PLAYER.maxHp, san: PLAYER.maxSan, energy: PLAYER.maxEnergy, kpi: PLAYER.startKpi,
-      maxHpBonus: 0, maxSanBonus: 0, maxEnergyBonus: 0, maxKpiBonus: 0,
+      pressure: 0, energy: PLAYER.maxEnergy, grad: PLAYER.startGrad,
+      maxPressureBonus: 0, maxEnergyBonus: 0, maxGradBonus: 0,
       stunTimer: 0,
       slackTimer: 0,
       invulnTimer: 0,
       shield: false,
       hitFlash: 0,
+      idleSince: 0, // 记录多久没敲键
       // 演出
       pose: 'typing', idleTimer: 0, poseX: 0, poseY: 0,
     },
     stats: {
-      atkMult: 1, damageBonus: 0, energyRegenMult: 1, sanRegenPerSec: 0,
+      atkMult: 1, damageBonus: 0, energyRegenMult: 1, pressureRegenPerSec: 0,
       imDamageMult: 1, blameDamageMult: 1, meetingDamageMult: 1, commentDamageMult: 1,
-      moveSpeedBonus: 0, pickupRange: 0,
       coffeeAddict: false, stableMind: false, burnMidnight: false,
       muscleMemory: false, weeklyReport: false,
       coffeeAddictCd: 0,
-      bossStunReduce: 0, blameReturnReduce: 0, slackSanBonus: 0,
-      atkSpeedPerLevel: 0, energyOnKill: 0, sanOnKill: 0,
-      upgradeShield: false, rareChanceBonus: 0, legendaryChanceBonus: 0,
-      silenceUpgrade: false, comboDamageBonus: 0,
-      nplusUsed: false, doubleItem: false,
+      blameReturnReduce: 0,
+      energyOnKill: 0, pressureOnKill: 0,
+      upgradeShield: false, headphoneBonus: false, pptArmorChance: 0,
+      approvalDrainMult: 1, kpiNoDrop: false, doubleItem: false,
+      nplusUsed: false, n1Package: false, n1Used: false,
     },
     enemies: [],
     bullets: [],
@@ -219,8 +223,9 @@ function addKillRewards() {
   const p = game.player;
   const s = game.stats;
   if (s.energyOnKill) p.energy = Math.min(PLAYER.maxEnergy + p.maxEnergyBonus, p.energy + s.energyOnKill);
-  if (s.sanOnKill) p.san = Math.min(PLAYER.maxSan + p.maxSanBonus, p.san + s.sanOnKill);
-  p.kpi = Math.min(PLAYER.maxKpi + p.maxKpiBonus, p.kpi + randInt(1, 3));
+  if (s.pressureOnKill) p.pressure = Math.max(0, p.pressure - s.pressureOnKill);
+  // 击杀降低毕业进度
+  p.grad = Math.max(0, p.grad - randInt(1, 3));
 }
 
 function getKillsForLevel(level) {
@@ -232,8 +237,9 @@ function trySeverance() {
   const sev = game.items.find(it => it.id === 'severance' && it.count > 0);
   if (!sev) return false;
   sev.count -= 1;
-  p.hp = 50; p.san = 50; p.energy = PLAYER.maxEnergy + p.maxEnergyBonus;
+  p.pressure = 20; p.energy = PLAYER.maxEnergy + p.maxEnergyBonus;
   p.invulnTimer = 5;
+  p.shield = false;
   spawnParticles(W/2, H/2, COLORS.green, '🧾 N+1 谈判成功！', 3);
   return true;
 }
@@ -333,11 +339,27 @@ function fireBullet(char, opts = {}) {
   }
   let dmg = PLAYER.baseDamage + game.stats.damageBonus;
   if (opts.isSpace) dmg += 1;
-  // SAN<30 时 20% 概率打出乱码
+  // 压力高时按错键：fumble
   let displayChar = char;
-  if (p.san < 30 && Math.random() < 0.2) {
-    const garbage = '★☆♠♣♥♦✿❀☁☂☀☾';
-    displayChar = garbage[randInt(0, garbage.length-1)];
+  let aimOffset = { x: 0, y: 0 };
+  const maxPressure = PLAYER.maxPressure + p.maxPressureBonus;
+  if (p.pressure >= maxPressure * 0.7) {
+    // 高压力：25% 概率打出错误字母 + 方向偏移
+    if (Math.random() < 0.25) {
+      displayChar = String.fromCharCode(65 + randInt(0, 25));
+      aimOffset = { x: rand(-1.5, 1.5), y: rand(-1.5, 1.5) };
+    }
+    // 乱码
+    if (Math.random() < 0.15) {
+      const garbage = '★☆♠♣♥♦✿❀☁☂☀☾';
+      displayChar = garbage[randInt(0, garbage.length-1)];
+    }
+  } else if (p.pressure >= maxPressure * 0.5 && Math.random() < 0.15) {
+    // 中压力：15% 概率轻微偏移/错字
+    if (Math.random() < 0.5) {
+      displayChar = String.fromCharCode(65 + randInt(0, 25));
+    }
+    aimOffset = { x: rand(-0.6, 0.6), y: rand(-0.6, 0.6) };
   }
   game.bullets.push({
     x: ws.cx, y: ws.cy,
@@ -353,6 +375,10 @@ function fireBullet(char, opts = {}) {
     size: opts.isSpace ? 1.3 : 1.0,
     trail: [],
   });
+  // 应用瞄准偏移
+  const last = game.bullets[game.bullets.length-1];
+  last.vx += aimOffset.x;
+  last.vy += aimOffset.y;
   // 精力消耗
   p.energy -= PLAYER.energyCostPerKey;
   game.combo += 1;
@@ -369,12 +395,12 @@ function useItem(slot) {
   if (!item || item.count <= 0) return;
   if (item.cd > 0) return;
   if (game.bossPatrol.active && item.id === 'milk_tea') {
-    game.player.hp = Math.max(0, game.player.hp - 40);
+    game.player.pressure = Math.min(PLAYER.maxPressure + game.player.maxPressureBonus, game.player.pressure + 40);
     game.player.hitFlash = 0.3;
     item.count -= 1;
     item.cd = ITEMS[item.id].cd;
     spawnParticles(W/2, 80, COLORS.red, '👀 老板看着呢！', 2);
-    if (game.player.hp <= 0) endGame(false, '被老板抓现行');
+    if (game.player.pressure >= PLAYER.maxPressure + game.player.maxPressureBonus) endGame(false, '被老板抓现行');
     return;
   }
   if (game.bossPatrol.active || (game.kpiEvent && game.kpiEvent.active)) {
@@ -386,7 +412,7 @@ function useItem(slot) {
     case 'milk_tea':
       game.player.slackTimer = TIME.slackDuration;
       game.player.invulnTimer = TIME.slackDuration;
-      game.player.san = Math.min(game.player.maxSan + game.player.maxSanBonus, game.player.san + 15);
+      game.player.pressure = Math.max(0, game.player.pressure - 30);
       game.player.energy = Math.min(game.player.maxEnergy + game.player.maxEnergyBonus, game.player.energy + 25);
       game.player.pose = 'tea';
       game.player.idleTimer = 0;
@@ -406,7 +432,7 @@ function useItem(slot) {
         }
       }
       game.activeItemEffects.blameLock = 2;
-      game.player.san = Math.max(0, game.player.san - 5);
+      game.player.pressure = Math.min(PLAYER.maxPressure + game.player.maxPressureBonus, game.player.pressure + 5);
       if (game.stats.weeklyReport) {
         // 刷新自己CD
         item.cd = 0;
@@ -439,11 +465,11 @@ function applyUpgrade(upg) {
     game.player.invulnTimer = Math.max(game.player.invulnTimer, 3);
   }
   if (game.stats.energyOnKill) game.player.energy = Math.min(PLAYER.maxEnergy + game.player.maxEnergyBonus, game.player.energy + game.stats.energyOnKill);
-  if (game.stats.sanOnKill) game.player.san = Math.min(PLAYER.maxSan + game.player.maxSanBonus, game.player.san + game.stats.sanOnKill);
+  if (game.stats.pressureOnKill) game.player.pressure = Math.max(0, game.player.pressure - game.stats.pressureOnKill);
   // 初次拿 N+1 大礼包
   if (upg.id === 'n1_pkg' && !game.stats.n1Used) {
     game.stats.n1Used = true;
-    game.player.kpi = Math.min(PLAYER.maxKpi + game.player.maxKpiBonus, game.player.kpi + 100);
+    game.player.grad = Math.min(PLAYER.maxGrad + game.player.maxGradBonus, game.player.grad + 100);
     // 清屏
     for (const e of game.enemies) {
       if (!e.friendly && !e.fleeing) { e.hp = 0; game.kills++; game.killsSinceLevel++; }
@@ -561,15 +587,9 @@ function tick(dt) {
     spawnParticles(W/2, H/3, COLORS.red, '🚨 下班准备期 · 撑住！', 3);
   }
 
-  // KPI 事件：领导约谈 / 优秀员工
+  // 约谈事件计时
   if (!game.kpiEvent) game.kpiEvent = { active: false, timer: 0, cd: 0 };
   if (game.kpiEvent.cd > 0) game.kpiEvent.cd -= dt;
-  if (p.kpi < 20 && !game.kpiEvent.active && game.kpiEvent.cd <= 0) {
-    game.kpiEvent.active = true;
-    game.kpiEvent.timer = 5;
-    game.kpiEvent.cd = 30;
-    spawnParticles(W/2, 100, COLORS.red, '⚠️ 领导约谈！伤害翻倍', 2);
-  }
   if (game.kpiEvent.active) {
     game.kpiEvent.timer -= dt;
     if (game.kpiEvent.timer <= 0) game.kpiEvent.active = false;
@@ -605,13 +625,30 @@ function tick(dt) {
     p.energy = Math.min(PLAYER.maxEnergy + p.maxEnergyBonus,
       p.energy + PLAYER.energyRegenPerSec * game.stats.energyRegenMult * dt);
   }
-  // SAN 回复
-  if (game.stats.sanRegenPerSec > 0) {
-    p.san = Math.min(PLAYER.maxSan + p.maxSanBonus, p.san + game.stats.sanRegenPerSec * dt);
+  // 词条减压力
+  if (game.stats.pressureRegenPerSec > 0) {
+    p.pressure = Math.max(0, p.pressure - game.stats.pressureRegenPerSec * dt);
   }
-  // KPI 在摸鱼时下降
-  if (slack && !game.stats.kpiNoDrop) {
-    p.kpi = Math.max(0, p.kpi - 2 * dt);
+  // 不打字期间压力缓降、毕业进度涨；打字期间毕业进度降
+  const typing = game.lastAtkTime && (performance.now()/1000 - game.lastAtkTime < 0.5);
+  if (!typing && !slack) {
+    p.pressure = Math.max(0, p.pressure - PLAYER.pressureIdleFall * dt);
+    p.grad = Math.min(PLAYER.maxGrad + p.maxGradBonus, p.grad + PLAYER.gradRisePerSec * dt);
+  } else if (typing && !slack) {
+    p.grad = Math.max(0, p.grad - PLAYER.gradFallPerSec * dt);
+  }
+  if (slack) {
+    p.grad = Math.min(PLAYER.maxGrad + p.maxGradBonus, p.grad + PLAYER.gradRisePerSec * 2 * dt);
+    p.pressure = Math.max(0, p.pressure - 8 * dt);
+  }
+
+  // 毕业进度满触发优化谈话
+  if (p.grad >= PLAYER.maxGrad + p.maxGradBonus && !game.kpiEvent.active && (!game.kpiEvent.cd || game.kpiEvent.cd <= 0)) {
+    game.kpiEvent.active = true;
+    game.kpiEvent.timer = 5;
+    game.kpiEvent.cd = 20;
+    p.grad = 30;
+    spawnParticles(W/2, 100, COLORS.red, '⚠️ 你被优化了！伤害翻倍', 2);
   }
 
   // 咖啡成瘾自动触发
@@ -762,24 +799,20 @@ function tick(dt) {
       if (p.invulnTimer > 0) dmg = 0;
 
       if (dmg > 0) {
+        const maxSan = PLAYER.maxPressure + p.maxPressureBonus;
         if (e.stun > 0) {
           p.stunTimer = e.stun;
-          // 硬直期间双倍伤害标记下次击中
-          p.hp = Math.max(0, p.hp - dmg * 2);
+          p.pressure = Math.min(maxSan, p.pressure + dmg * 2);
         } else {
-          p.hp = Math.max(0, p.hp - dmg);
-          p.san = Math.max(0, p.san - dmg * 0.5);
+          p.pressure = Math.min(maxSan, p.pressure + dmg);
         }
         p.hitFlash = 0.3;
-        spawnParticles(p.x, p.y, COLORS.red, `-${Math.round(dmg)}`, 0.8);
+        spawnParticles(p.x, p.y, COLORS.red, `+${Math.round(dmg)}压力`, 0.8);
       }
       game.enemies.splice(i, 1);
       game.combo = 0;
 
-      if (p.hp <= 0) {
-        if (!trySeverance()) { endGame(false, '加班猝死'); return; }
-      }
-      if (p.san <= 0) {
+      if (p.pressure >= maxSan) {
         if (!trySeverance()) { endGame(false, '精神崩溃'); return; }
       }
     }
@@ -803,20 +836,17 @@ function tick(dt) {
     // 敌方子弹：打中玩家
     if (b.enemyBullet) {
       if (dist(b.x, b.y, ws.cx, ws.cy) < Math.max(ws.w, ws.h) / 2 - 10) {
+        const maxSan = PLAYER.maxPressure + p.maxPressureBonus;
         if (p.invulnTimer <= 0 && !p.shield) {
           let dmg = b.damage;
           if (game.bossPatrol.active) dmg *= 2;
           if (game.kpiEvent && game.kpiEvent.active) dmg *= 2;
           if (game.activeItemEffects.headphone > 0 && b.x < W/2) dmg *= 0.5;
-          p.hp = Math.max(0, p.hp - dmg);
-          p.san = Math.max(0, p.san - dmg * 0.3);
+          p.pressure = Math.min(maxSan, p.pressure + dmg);
           p.hitFlash = 0.3;
-          spawnParticles(b.x, b.y, COLORS.red, `-${dmg}`, 0.6);
+          spawnParticles(b.x, b.y, COLORS.red, `+${dmg}压力`, 0.6);
           game.bullets.splice(i, 1);
-          if (p.hp <= 0) {
-            if (!trySeverance()) { endGame(false, '加班猝死'); return; }
-          }
-          if (p.san <= 0) {
+          if (p.pressure >= maxSan) {
             if (!trySeverance()) { endGame(false, '精神崩溃'); return; }
           }
         } else if (p.shield) {
@@ -889,11 +919,14 @@ function getAtkInterval() {
   if (game.activeItemEffects.coffee > 0) mult *= 2;
   const gm = game.gameMinute / 60;
   if (game.stats.muscleMemory && gm >= 17) mult *= 1.5;
-  if (game.player.kpi > 80) mult *= 1.2; // 优秀员工 buff
-  const sanLow = game.player.san < 30;
-  if (sanLow && !game.stats.stableMind) mult *= 0;
-  else if (sanLow && game.stats.stableMind) mult *= 0.7;
-  // 精力攻速连续梯度
+  if (game.player.grad < 20) mult *= 1.2; // 优秀员工 buff（毕业进度低=产出好）
+  // 压力高时打字出错率高，攻速下降
+  const p = game.player.pressure;
+  const maxPressure = PLAYER.maxPressure + game.player.maxPressureBonus;
+  if (p >= maxPressure * 0.7 && !game.stats.stableMind) mult *= 0;   // 崩溃不能打
+  else if (p >= maxPressure * 0.7 && game.stats.stableMind) mult *= 0.7;
+  else if (p >= maxPressure * 0.5) mult *= 0.8;  // 压力大攻速降
+  // 体力攻速连续梯度
   const maxEnergy = PLAYER.maxEnergy + game.player.maxEnergyBonus;
   const energyRatio = maxEnergy > 0 ? game.player.energy / maxEnergy : 1;
   let energyMult;
@@ -947,21 +980,22 @@ function onKeyDown(e) {
     if (game.player.stunTimer > 0) return;
     if (game.player.slackTimer > 0) return;
     if (game.activeItemEffects.blameLock > 0) return;
-
     let canFire = true;
+    const maxPressure = PLAYER.maxPressure + game.player.maxPressureBonus;
     const energyZero = game.player.energy <= 0;
     if (energyZero) {
       if (game.stats.burnMidnight) {
-        game.player.san = Math.max(0, game.player.san - 1);
-        if (game.player.san <= 0) {
+        game.player.pressure = Math.min(maxPressure, game.player.pressure + 1);
+        if (game.player.pressure >= maxPressure) {
           if (!trySeverance()) { endGame(false, '精神崩溃'); return; }
         }
       } else {
         canFire = false;
       }
     }
-    const sanZeroFire = game.player.san < 30 && !game.stats.stableMind;
-    if (sanZeroFire) canFire = false;
+    // 压力高到崩溃不能打
+    const pressureCrit = game.player.pressure >= maxPressure * 0.7 && !game.stats.stableMind;
+    if (pressureCrit) canFire = false;
 
     if (canFire && now - game.lastAtkTime >= getAtkInterval()) {
       fireBullet(fireChar, fireOpts);
@@ -1104,8 +1138,9 @@ function drawPlayer() {
 
   // 角色 emoji
   let face = '😊';
-  if (p.san < 30) face = '😵';
-  else if (p.san < 60 || p.hp < 40) face = '😰';
+  const maxP = PLAYER.maxPressure + p.maxPressureBonus;
+  if (p.pressure >= maxP * 0.7) face = '😵';
+  else if (p.pressure >= maxP * 0.4) face = '😰';
   if (p.pose === 'tea') face = '🐟';
   if (p.stunTimer > 0) face = '😴';
   ctx.font = '32px sans-serif';
@@ -1237,24 +1272,25 @@ function drawKpiEvent() {
   ctx.fillText('📢 领导约谈中！伤害翻倍、道具禁用', W/2, 70);
 }
 
-function drawSanLowEffect() {
+function drawPressureEffect() {
   if (game.state !== State.PLAYING && game.state !== State.PAUSED) return;
-  const san = game.player.san;
-  if (san >= 30) return;
-  const intensity = (30 - san) / 30; // 0..1
+  const p = game.player.pressure;
+  const maxP = PLAYER.maxPressure + game.player.maxPressureBonus;
+  if (p < maxP * 0.5) return;
+  const intensity = (p - maxP*0.5) / (maxP*0.5); // 0..1
   // 偏色覆盖
-  ctx.fillStyle = `rgba(150,50,200,${0.05 + intensity*0.1})`;
+  ctx.fillStyle = `rgba(150,50,200,${0.04 + intensity*0.12})`;
   ctx.fillRect(0, 0, W, H);
   // 噪点
-  const count = Math.floor(20 + intensity * 80);
-  ctx.fillStyle = `rgba(255,255,255,${0.1 + intensity*0.2})`;
+  const count = Math.floor(15 + intensity * 70);
+  ctx.fillStyle = `rgba(255,255,255,${0.08 + intensity*0.18})`;
   for (let i = 0; i < count; i++) {
     ctx.fillRect(rand(0, W), rand(0, H), rand(1,2), rand(1,2));
   }
   // 边缘暗角
   const grad = ctx.createRadialGradient(W/2, H/2, Math.min(W,H)*0.3, W/2, H/2, Math.max(W,H)*0.7);
   grad.addColorStop(0, 'rgba(0,0,0,0)');
-  grad.addColorStop(1, `rgba(0,0,0,${0.3 + intensity*0.3})`);
+  grad.addColorStop(1, `rgba(0,0,0,${0.2 + intensity*0.35})`);
   ctx.fillStyle = grad;
   ctx.fillRect(0, 0, W, H);
 }
@@ -1294,11 +1330,10 @@ function drawBossPatrol() {
 
 function drawHUD() {
   const p = game.player;
-  const maxHp = PLAYER.maxHp + p.maxHpBonus;
-  const maxSan = PLAYER.maxSan + p.maxSanBonus;
-  const maxEnergy = PLAYER.maxEnergy + p.maxEnergyBonus;
-  const maxKpi = PLAYER.maxKpi + p.maxKpiBonus;
   const barW = 180, barH = 14, margin = 20, gap = 30;
+  const maxPressure = PLAYER.maxPressure + p.maxPressureBonus;
+  const maxEnergy = PLAYER.maxEnergy + p.maxEnergyBonus;
+  const maxGrad = PLAYER.maxGrad + p.maxGradBonus;
 
   // 时间条
   const timeProgress = (game.gameMinute - TIME.startHour*60) / ((TIME.endHour - TIME.startHour)*60);
@@ -1314,10 +1349,9 @@ function drawHUD() {
 
   // 资源条
   const bars = [
-    { label: '❤️ HP', val: p.hp, max: maxHp, color: COLORS.red },
-    { label: '😰 SAN', val: p.san, max: maxSan, color: COLORS.purple },
-    { label: '⚡ 精力', val: p.energy, max: maxEnergy, color: COLORS.yellow },
-    { label: '📊 KPI', val: p.kpi, max: maxKpi, color: COLORS.green },
+    { label: '😤 压力', val: p.pressure, max: maxPressure, color: COLORS.red, reverse: true },
+    { label: '💪 体力', val: p.energy, max: maxEnergy, color: COLORS.yellow, reverse: false },
+    { label: '🎓 毕业进度', val: p.grad, max: maxGrad, color: COLORS.purple, reverse: true },
   ];
   ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
   ctx.font = '12px "JetBrains Mono", sans-serif';
@@ -1672,7 +1706,7 @@ function loop(ts) {
     drawBossPatrol();
     drawHUD();
     drawKpiEvent();
-    drawSanLowEffect();
+    drawPressureEffect();
     if (game.state === State.PAUSED) drawPauseScreen();
     if (game.state === State.LEVEL_UP) drawLevelUpScreen();
     if (game.state === State.GAME_OVER) drawGameOverScreen();
