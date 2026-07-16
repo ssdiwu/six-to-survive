@@ -186,6 +186,17 @@ function pickWeighted(entries) {
   return entries[entries.length - 1].v;
 }
 
+function trySeverance() {
+  const p = game.player;
+  const sev = game.items.find(it => it.id === 'severance' && it.count > 0);
+  if (!sev) return false;
+  sev.count -= 1;
+  p.hp = 50; p.san = 50; p.energy = PLAYER.maxEnergy + p.maxEnergyBonus;
+  p.invulnTimer = 5;
+  spawnParticles(W/2, H/2, COLORS.green, '🧾 N+1 谈判成功！', 3);
+  return true;
+}
+
 function nearestEnemy(x, y) {
   let best = null, bestD = Infinity;
   for (const e of game.enemies) {
@@ -357,28 +368,32 @@ function applyUpgrade(upg) {
 function triggerLevelUp() {
   game.state = State.LEVEL_UP;
   game.levelUps = [];
-  for (let i = 0; i < WAVE.cardCount; i++) {
+  const usedIds = new Set();
+  const tierWeights = [
+    { v: 'common', w: TIER_WEIGHTS.common },
+    { v: 'rare', w: TIER_WEIGHTS.rare },
+    { v: 'epic', w: TIER_WEIGHTS.epic },
+    { v: 'legendary', w: TIER_WEIGHTS.legendary },
+  ];
+  const itemKeys = Object.keys(ITEMS);
+  let attempts = 0;
+  while (game.levelUps.length < WAVE.cardCount && attempts < 50) {
+    attempts++;
     const roll = Math.random() * 100;
     if (roll < TIER_WEIGHTS.item) {
-      // 道具卡
-      const itemKeys = Object.keys(ITEMS);
-      const id = itemKeys[randInt(0, itemKeys.length - 1)];
+      const availItems = itemKeys.filter(k => !usedIds.has('item:'+k));
+      if (availItems.length === 0) continue;
+      const id = availItems[randInt(0, availItems.length - 1)];
+      usedIds.add('item:'+id);
       game.levelUps.push({ type: 'item', id });
     } else {
-      // 词条卡
-      const tier = pickWeighted([
-        { v: 'common', w: TIER_WEIGHTS.common },
-        { v: 'rare', w: TIER_WEIGHTS.rare },
-        { v: 'epic', w: TIER_WEIGHTS.epic },
-        { v: 'legendary', w: TIER_WEIGHTS.legendary },
-      ]);
-      const pool = UPGRADES.filter(u => u.tier === tier);
-      if (pool.length > 0) {
-        game.levelUps.push({ type: 'upgrade', upg: pool[randInt(0, pool.length - 1)] });
-      } else {
-        const allPool = UPGRADES.filter(u => u.tier === 'common');
-        game.levelUps.push({ type: 'upgrade', upg: allPool[randInt(0, allPool.length - 1)] });
-      }
+      const tier = pickWeighted(tierWeights);
+      let pool = UPGRADES.filter(u => u.tier === tier && !usedIds.has('upg:'+u.id));
+      if (pool.length === 0) pool = UPGRADES.filter(u => !usedIds.has('upg:'+u.id));
+      if (pool.length === 0) break;
+      const upg = pool[randInt(0, pool.length - 1)];
+      usedIds.add('upg:'+upg.id);
+      game.levelUps.push({ type: 'upgrade', upg });
     }
   }
 }
@@ -589,21 +604,10 @@ function tick(dt) {
       game.combo = 0;
 
       if (p.hp <= 0) {
-        // 离职缓冲
-        const sev = game.items.find(it => it.id === 'severance' && it.count > 0);
-        if (sev) {
-          sev.count -= 1;
-          p.hp = 50; p.san = 50; p.energy = PLAYER.maxEnergy + p.maxEnergyBonus;
-          p.invulnTimer = 5;
-          spawnParticles(W/2, H/2, COLORS.green, '🧾 N+1 谈判成功！', 3);
-        } else {
-          endGame(false, '加班猝死');
-          return;
-        }
+        if (!trySeverance()) { endGame(false, '加班猝死'); return; }
       }
       if (p.san <= 0) {
-        endGame(false, '精神崩溃');
-        return;
+        if (!trySeverance()) { endGame(false, '精神崩溃'); return; }
       }
     }
   }
@@ -713,7 +717,9 @@ function onKeyDown(e) {
     if (energyZero) {
       if (game.stats.burnMidnight) {
         game.player.san = Math.max(0, game.player.san - 1);
-        if (game.player.san <= 0) { endGame(false, '精神崩溃'); return; }
+        if (game.player.san <= 0) {
+          if (!trySeverance()) { endGame(false, '精神崩溃'); return; }
+        }
       } else {
         canFire = false;
       }
