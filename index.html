@@ -2,20 +2,15 @@
 <html lang="zh-CN">
 <head>
 <meta charset="utf-8" />
-<meta name="viewport" content="width=1280, initial-scale=1" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>Six to Survive · 撑到六点</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
 <style>
-  html, body {
-    margin: 0; padding: 0; height: 100%;
-    background: #0d1117; color: #e6edf3;
-    font-family: -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif;
-    overflow: hidden;
-    user-select: none;
-  }
-  #game { display: block; width: 100vw; height: 100vh; cursor: default; }
+  html, body { margin:0; padding:0; height:100%; background:#0d1117; color:#e6edf3;
+    font-family:-apple-system,"PingFang SC","Microsoft YaHei",sans-serif; overflow:hidden; user-select:none; }
+  #game { display:block; width:100vw; height:100vh; cursor:default; }
 </style>
 </head>
 <body>
@@ -24,711 +19,554 @@
 'use strict';
 
 // ============================================================
-// === 配置常量 ===
+// === 配置 ===
 // ============================================================
-
 const COLORS = {
-  bg: '#0d1117',
-  panel: '#161b22',
-  border: '#30363d',
-  feishuBlue: '#3370ff',
-  white: '#e6edf3',
-  red: '#e06c75',
-  yellow: '#e5c07b',
-  green: '#98c379',
-  blue: '#61afef',
-  orange: '#d19a66',
-  purple: '#c678dd',
-  cyan: '#56b6c2',
+  bg:'#0d1117', panel:'#161b22', border:'#30363d', feishuBlue:'#3370ff',
+  white:'#e6edf3', red:'#e06c75', yellow:'#e5c07b', green:'#98c379',
+  blue:'#61afef', orange:'#d19a66', purple:'#c678dd', cyan:'#56b6c2', gray:'#8b949e'
 };
 
 const PLAYER = {
   maxPressure: 100, maxEnergy: 100, maxGrad: 100,
   startGrad: 30,
-  baseDamage: 1,
-  baseAtkSpeed: 7,
-  energyCostPerKey: 1.2,
-  energyRegenPerSec: 1.0,
-  pressureIdleFall: 0.8,     // 不打字时每秒压力降
-  gradRisePerSec: 5,        // 不打字时毕业进度每秒涨
-  gradFallPerKey: 2,        // 每敲一键毕业进度降
-  gradFallPerSec: 3,        // 打字期间毕业进度每秒降
+  baseDamage: 1, baseAtkSpeed: 7,
+  energyCostPerKey: 1.2, energyRegenPerSec: 1.0,
+  pressureIdleFall: 0.8,            // 不输出时降压
+  pressureTypingRise: 1.0,         // 输出时涨压
+  gradRisePerSec: 5,               // 不输出时毕业进度涨
+  gradFallPerSec: 3,               // 输出时毕业进度降
   workspaceRatio: 0.25,
 };
 
-const TIME = {
-  startHour: 9, endHour: 18,
-  gameMinutesPerRealSec: 45 / 60,
-  slackDuration: 3,
-};
+const SKILLS = [
+  { id:'coffee',    emoji:'☕', name:'咖啡',    chargeBy:'keys',    chargeNeed:250, duration:4,
+    desc:'攻速翻倍 不耗体力' },
+  { id:'paste',     emoji:'⌨️', name:'Ctrl+V', chargeBy:'keys',    chargeNeed:400, duration:3,
+    desc:'每键同时打3个敌人' },
+  { id:'milktea',   emoji:'🧋', name:'摸鱼',    chargeBy:'energy',  chargeNeed:300, duration:2.5,
+    desc:'冻结敌人 无敌 -20压力' },
+  { id:'breath',    emoji:'🫧', name:'深呼吸', chargeBy:'pressure',chargeNeed:250, duration:5,
+    desc:'-4/s 压力' },
+  { id:'blame',     emoji:'🍳', name:'甩锅',    chargeBy:'grad',    chargeNeed:80, duration:0,
+    desc:'全屏反弹 毕业清零' },
+];
 
 const ENEMIES = {
-  im:       { name: '飞书IM',   hp: 3, speed: 2.4, damage: 6,  size: 12, color: COLORS.feishuBlue, label: '', texts: ['在吗？','看一下消息','麻烦回复下','这个很急','今天能给吗','有空吗','在？','急！','请确认','反馈一下','同步下进度','过一下方案','帮忙看下','review 一下','？？','收到请回复','对下方案','这个谁负责','你看下群','拉个会','催一下','对齐一下','跟进下','在忙吗','能来一下吗','文档看了吗','帮忙加个班','今晚上线','今天能好吗','谁接这个需求','发一下周报','同步下进展','老板问了','客户在催','明天汇报','出个差','加个需求','改个样式','过下文案','做个 PPT','写个文档','开个单','发个版本','回个邮件','登一下 VPN','看下报警','群里 at 你了','@ 所有人','帮忙顶一下','这轮谁 oncall','回归测一下','帮忙找下 bug','看下日志','这个 case 看了吗','对齐 OKR','下周要汇报','复盘写了吗','需求评审了吗','排期给一下','方案过一下','明天开会','今晚要发版','帮忙补个文档','看下邮件','帮忙合一下 MR','帮忙 review PR','上环境了','回滚一下','线上出事了','快回群里','等你回复','方便接电话吗','语音一下','同步会议纪要','看下周报','季度总结写了吗','提测了吗','过下验收标准','今天能提测吗','这是 P0','帮忙做个表','对下数据','盘一下库存','看下监控','大盘红了','告警 100+','故障群拉了','客户投诉了','老板找你','HR 找你','财务找你','行政找你','周会开了吗','月报写了吗','年会报名了吗','团建你去吗','体检做了吗','发票贴了吗','报销交了吗','审批到你了','权限开了吗'] },
-  meeting:  { name: '会议邀请', hp: 12, speed: 0.9, damage: 0,  size: 26, color: COLORS.purple,     label: '📅', stun: 1.0, texts: ['周会同步','需求评审','紧急拉群','项目对齐会','问题复盘','季度规划','1:1 沟通','进度 standup','头脑风暴','kickoff','需求澄清','技术评审','方案评审','排期对齐','站会','晨会','晚会','周报同步','月度复盘','OKR 对齐','预评审','会后会','对齐会','同步会','需求宣讲','架构评审','事故复盘','复盘会','立项会','验收会','总结会','庆功会'] },
-  colleague:{ name: '同事@你',  hp: 4, speed: 1.6, damage: 7,  size: 16, color: COLORS.green,      label: '❓', texts: ['帮我看下这个','这个咋弄啊','你有这个文档吗','帮我 review 下','代码跑不起来','这个接口对吗','你那边能复现不','请教个问题','帮忙改下','线上出 bug 了','你改了什么','谁动了我代码','这个需求谁接','我本地是好的','帮我查下日志','这个 case 看了吗','帮我合下 MR','环境挂了','回归一下','谁部署的','为什么回滚','有报错截图吗','复现步骤是','你这什么分支','帮我拉下分支','怎么本地又挂了','接口超时了','配置没改吧','密钥失效了','帮我开下权限'] },
-  comment:  { name: '文档@评论', hp: 7, speed: 1.2, damage: 9, size: 18, color: COLORS.yellow, label: '@', texts: ['这里改一下','参考下竞品','样式不对','逻辑不通','再改改','没对齐设计稿','明天上线','评论下','这体验不好','按钮不明显','文案改一下','设计稿更新了','逻辑有问题','要重新排期','今晚能好吗','用户反馈的','这个太复杂','能不能简单点','交互不对','字号太小','颜色不好看','间距调一下','弹窗太丑','文案不通顺','逻辑有漏洞','体验不顺滑','再出个方案','再给个版本','重新想想','这个先不做','需求变了','再评审下'] },
-  approval: { name: '审批待办', hp: 4, speed: 0.8, damage: 0, size: 18, color: '#8b949e', label: '✓', texts: ['报销审批','合同审批','权限申请','用印申请','付款审批','休假审批','出差申请','采购审批','预算审批','资产申请','账号申请','门禁申请','离职交接','入职审批','转正申请','调岗申请','晋升答辩','调薪申请','加班审批','补卡申请','请假审批','外出申请','用车申请','招待申请','会议申请','培训申请','招聘审批','背调授权','设备申请','网络开通'] },
-  okr:      { name: 'OKR对齐',  hp: 20, speed: 0.7, damage: 16, size: 32, color: COLORS.red, label: '🎯', texts: ['季末对齐','OKR Review','目标复盘','绩效评估','季度总结','360评估','年终汇报','晋升答辩','述职报告','绩效沟通','战略对齐','部门 review','半年评估','目标拆解','KR 对齐','绩效校准','人才盘点','组织调整','战略解码','目标对齐会','季度规划','年度规划','战略复盘','能力评估','述职评审','绩效反馈','调薪评估','奖金评定','职级晋升','发展计划'] },
-};
-
-const ITEMS = {
-  milk_tea:     { emoji: '🧋', name: '摸鱼奶茶', cd: 20, desc: '3s敌人冻结/无敌/回血', rarity: 'common' },
-  blame_sticker:{ emoji: '🍳', name: '甩锅贴',   cd: 15, desc: '全屏弹幕反向飞出',     rarity: 'common' },
-  coffee:       { emoji: '☕', name: '咖啡罐',   cd: 25, desc: '5s攻速翻倍不耗精力',   rarity: 'common' },
-  ppt_armor:    { emoji: '🛡️', name: 'PPT 装甲', cd: 30, desc: '护盾抵消下次伤害',     rarity: 'common' },
-  headphone:    { emoji: '🎧', name: '降噪耳机', cd: 35, desc: '5s左侧弹幕伤害减半',   rarity: 'rare' },
-  severance:    { emoji: '🧾', name: '离职缓冲', cd: 60, desc: '首次死亡免死回满',     rarity: 'rare' },
+  im:       { name:'飞书IM',   hp:3, speed:2.4, dmg:6,  size:12, color:COLORS.feishuBlue, label:'',
+    texts:['在吗？','看一下消息','麻烦回复下','这个很急','今天能给吗','有空吗','在？','急！','请确认','反馈一下','同步下进度','过一下方案','帮忙看下','review 一下','？？','收到请回复','对下方案','这个谁负责','你看下群','拉个会','催一下','对齐一下','跟进下','在忙吗','能来一下吗','文档看了吗','帮忙加个班','今晚上线','今天能好吗','谁接这个需求','发一下周报','同步下进展','老板问了','客户在催','明天汇报','出个差','加个需求','改个样式','过下文案','做个 PPT','写个文档','开个单','发个版本','回个邮件','登一下 VPN','看下报警','群里 at 你了','@ 所有人','帮忙顶一下','这轮谁 oncall','回归测一下','帮忙找下 bug','看下日志','这个 case 看了吗','对齐 OKR','下周要汇报','复盘写了吗','需求评审了吗','排期给一下','方案过一下','明天开会','今晚要发版','帮忙补个文档','看下邮件','帮忙合一下 MR','帮忙 review PR','上环境了','回滚一下','线上出事了','快回群里','等你回复','方便接电话吗','语音一下','同步会议纪要','看下周报','季度总结写了吗','提测了吗','过下验收标准','今天能提测吗','这是 P0','帮忙做个表','对下数据','盘一下库存','看下监控','大盘红了','告警 100+','故障群拉了','客户投诉了','老板找你','HR 找你','财务找你','行政找你','周会开了吗','月报写了吗','年会报名了吗','团建你去吗','体检做了吗','发票贴了吗','报销交了吗','审批到你了','权限开了吗'] },
+  meeting:  { name:'会议邀请', hp:12,speed:0.9, dmg:0,  size:26, color:COLORS.purple,     label:'📅', stun:1.0,
+    texts:['周会同步','需求评审','紧急拉群','项目对齐会','问题复盘','季度规划','1:1 沟通','进度 standup','头脑风暴','kickoff','需求澄清','技术评审','方案评审','排期对齐','站会','晨会','晚会','周报同步','月度复盘','OKR 对齐','预评审','会后会','对齐会','同步会','需求宣讲','架构评审','事故复盘','复盘会','立项会','验收会','总结会','庆功会'] },
+  colleague:{ name:'同事@你',  hp:4, speed:1.6, dmg:7,  size:16, color:COLORS.green,      label:'❓',
+    texts:['帮我看下这个','这个咋弄啊','你有这个文档吗','帮我 review 下','代码跑不起来','这个接口对吗','你那边能复现不','请教个问题','帮忙改下','线上出 bug 了','你改了什么','谁动了我代码','这个需求谁接','我本地是好的','帮我查下日志','这个 case 看了吗','帮我合下 MR','环境挂了','回归一下','谁部署的','为什么回滚','有报错截图吗','复现步骤是','你这什么分支','帮我拉下分支','怎么本地又挂了','接口超时了','配置没改吧','密钥失效了','帮我开下权限'] },
+  comment:  { name:'文档@评论',hp:7, speed:1.2, dmg:9,  size:18, color:COLORS.yellow,     label:'@',
+    texts:['这里改一下','参考下竞品','样式不对','逻辑不通','再改改','没对齐设计稿','明天上线','评论下','这体验不好','按钮不明显','文案改一下','设计稿更新了','逻辑有问题','要重新排期','今晚能好吗','用户反馈的','这个太复杂','能不能简单点','交互不对','字号太小','颜色不好看','间距调一下','弹窗太丑','文案不通顺','逻辑有漏洞','体验不顺滑','再出个方案','再给个版本','重新想想','这个先不做','需求变了','再评审下'] },
+  approval: { name:'审批待办', hp:4, speed:0.8, dmg:0,  size:18, color:'#8b949e', label:'✓', drain:2,
+    texts:['报销审批','合同审批','权限申请','用印申请','付款审批','休假审批','出差申请','采购审批','预算审批','资产申请','账号申请','门禁申请','离职交接','入职审批','转正申请','调岗申请','晋升答辩','调薪申请','加班审批','补卡申请','请假审批','外出申请','用车申请','招待申请','会议申请','培训申请','招聘审批','背调授权','设备申请','网络开通'] },
+  okr:      { name:'OKR对齐',  hp:20,speed:0.7, dmg:16, size:32, color:COLORS.red,        label:'🎯',
+    texts:['季末对齐','OKR Review','目标复盘','绩效评估','季度总结','360评估','年终汇报','晋升答辩','述职报告','绩效沟通','战略对齐','部门 review','半年评估','目标拆解','KR 对齐','绩效校准','人才盘点','组织调整','战略解码','目标对齐会','季度规划','年度规划','战略复盘','能力评估','述职评审','绩效反馈','调薪评估','奖金评定','职级晋升','发展计划'] },
 };
 
 const UPGRADES = [
-  // Common
-  { id:'kb',        name:'机械键盘',   tier:'common', desc:'攻速+15%',        apply:s=>s.atkMult*=1.15 },
-  { id:'dual_mon',  name:'双显示器',   tier:'common', desc:'字符弹伤害+1',    apply:s=>s.damageBonus+=1 },
-  { id:'thermos',   name:'保温杯',     tier:'common', desc:'精力回复+30%',    apply:s=>s.energyRegenMult*=1.3 },
-  { id:'charger',   name:'备用充电器', tier:'common', desc:'精力上限+20',     apply:s=>{s.maxEnergyBonus+=20;s.energy+=20;} },
-  { id:'plant',     name:'工位绿植',   tier:'common', desc:'压力上限+20 每秒降压', apply:s=>{s.maxPressureBonus+=20;s.pressure=Math.max(0,s.pressure-20);s.pressureRegenPerSec+=1;} },
-  { id:'ignore',    name:'已读不回',   tier:'common', desc:'IM消息伤害-20%',  apply:s=>s.imDamageMult*=0.8 },
-  { id:'standup_c', name:'站会',       tier:'common', desc:'攻速+10%',        apply:s=>s.atkMult*=1.1 },
-  { id:'pen',       name:'按动中性笔', tier:'common', desc:'击杀回2精力',     apply:s=>s.energyOnKill=2 },
-  { id:'notebook',  name:'效率笔记本', tier:'common', desc:'击杀减1压力',      apply:s=>s.pressureOnKill=1 },
-  // Rare
-  { id:'addict',    name:'咖啡成瘾',   tier:'rare',   desc:'精力<30时攻速翻倍(30sCD)', apply:s=>s.coffeeAddict=true },
-  { id:'blame_mstr',name:'甩锅大师',   tier:'rare',   desc:'甩锅贴反伤+50%',  apply:s=>s.blameDamageMult*=1.5 },
-  { id:'stable',    name:'情绪稳定器', tier:'rare',   desc:'压力高仍可打字',   apply:s=>s.stableMind=true },
-  { id:'meeting_f', name:'会议摸鱼',   tier:'rare',   desc:'硬直期间减压力',    apply:s=>s.pressureRegenPerSec+=0.5 },
-  { id:'req_log',   name:'需求记录员', tier:'rare',   desc:'@评论小弹-80%',   apply:s=>s.commentDamageMult*=0.2 },
-  { id:'headphone_u',name:'耳机降噪',  tier:'rare',   desc:'左侧弹幕-30%',    apply:s=>s.headphoneBonus=true },
-  { id:'ppt_armor_u',name:'PPT装甲',   tier:'rare',   desc:'受伤20%获护盾',    apply:s=>s.pptArmorChance=(s.pptArmorChance||0)+0.2 },
-  { id:'async_c',   name:'异步沟通',   tier:'rare',   desc:'审批扣精力-50%',  apply:s=>s.approvalDrainMult=0.5 },
-  // Epic
-  { id:'burn_mid',  name:'熬夜修仙',   tier:'epic',   desc:'体力=0仍可打字 每键+1压力', apply:s=>s.burnMidnight=true },
-  { id:'muscle',    name:'996肌肉记忆',tier:'epic',   desc:'17:00后攻速+50%', apply:s=>s.muscleMemory=true },
-  { id:'silent_upg',name:'全公司静默升级',tier:'epic',desc:'升级后3秒无敌',  apply:s=>s.upgradeShield=true },
-  { id:'req_arch',  name:'需求考古学', tier:'epic',   desc:'@评论伤害-80%',   apply:s=>s.commentDamageMult*=0.2 },
-  { id:'ceo_shadow',name:'老板附体',   tier:'epic',   desc:'伤害+20%',         apply:s=>{s.atkMult*=1.2;s.damageBonus+=1;} },
-  // Legendary
-  { id:'report',    name:'周报外挂',   tier:'legendary', desc:'甩锅贴刷新CD', apply:s=>s.weeklyReport=true },
-  { id:'equity_l',  name:'股权承诺书', tier:'legendary', desc:'摸鱼不掉KPI', apply:s=>s.gradNoDrop=true },
-  { id:'double_pick',name:'双选',      tier:'legendary', desc:'升级偶尔多拿1张',apply:s=>s.doubleItem=true },
+  // Common 白 5级
+  { id:'kb',        name:'键程优化',   tier:'common', maxLv:5, desc:'攻速上限 +1/s',
+    apply:(s,lv)=>{ s.atkSpeedBonus = lv; } },
+  { id:'dual_mon',  name:'双显示器',   tier:'common', maxLv:5, desc:'伤害 +0.5',
+    apply:(s,lv)=>{ s.damageBonus = lv*0.5; } },
+  { id:'thermos',   name:'保温杯',     tier:'common', maxLv:5, desc:'体力回复 +15%',
+    apply:(s,lv)=>{ s.energyRegenMult = 1 + lv*0.15; } },
+  { id:'pen',       name:'按动中性笔', tier:'common', maxLv:5, desc:'击杀回 0.5 体力',
+    apply:(s,lv)=>{ s.energyOnKill = lv*0.5; } },
+  { id:'notebook',  name:'效率笔记本', tier:'common', maxLv:5, desc:'击杀 -0.5 压力',
+    apply:(s,lv)=>{ s.pressureOnKill = lv*0.5; } },
+  { id:'ignore',    name:'已读不回',   tier:'common', maxLv:5, desc:'IM 伤害 -8%',
+    apply:(s,lv)=>{ s.imDamageMult = 1 - lv*0.08; } },
+  { id:'chair',     name:'人体工学椅', tier:'common', maxLv:5, desc:'空闲降压 +15%',
+    apply:(s,lv)=>{ s.pressureIdleMult = 1 + lv*0.15; } },
+  { id:'req_log',   name:'需求记录员', tier:'common', maxLv:5, desc:'@评论小弹 -20%',
+    apply:(s,lv)=>{ s.commentBulletMult = 1 - lv*0.2; } },
+  { id:'async_c',   name:'异步沟通',   tier:'common', maxLv:5, desc:'审批扣体力 -15%',
+    apply:(s,lv)=>{ s.approvalDrainMult = 1 - lv*0.15; } },
+  { id:'meeting_f', name:'会议摸鱼',   tier:'common', maxLv:5, desc:'硬直期间 -1/s 压力',
+    apply:(s,lv)=>{ s.pressureRegenPerSec = lv*1; } },
+  // Rare 蓝 3级
+  { id:'charger',   name:'备用充电器', tier:'rare', maxLv:3, desc:'体力上限 +10',
+    apply:(s,lv)=>{ s.maxEnergyBonus = lv*10; } },
+  { id:'plant',     name:'工位绿植',   tier:'rare', maxLv:3, desc:'压力上限 +10 / -0.5/s',
+    apply:(s,lv)=>{ s.maxPressureBonus = lv*10; s.pressureRegenPerSec += lv*0.5; } },
+  { id:'headphone', name:'耳机降噪',   tier:'rare', maxLv:3, desc:'左侧弹幕 -15%',
+    apply:(s,lv)=>{ s.leftDamageMult = 1 - lv*0.15; } },
+  { id:'fast_charge',name:'快速充能', tier:'rare', maxLv:3, desc:'技能充能 +10%',
+    apply:(s,lv)=>{ s.chargeSpeedMult = 1 + lv*0.1; } },
+  { id:'coffee_refill',name:'咖啡续杯',tier:'rare', maxLv:3, desc:'咖啡持续 +1s',
+    apply:(s,lv)=>{ s.coffeeBonus = lv; } },
+  { id:'deep_breath',name:'多喝热水', tier:'rare', maxLv:3, desc:'深呼吸多 -2/s',
+    apply:(s,lv)=>{ s.breathBonus = lv*2; } },
+  { id:'blame_loop',name:'甩锅闭环',   tier:'rare', maxLv:3, desc:'回旋锅 -30%',
+    apply:(s,lv)=>{ s.blameReturnReduce = lv*0.3; } },
+  // Epic 紫 2级
+  { id:'ceo_shadow',name:'老板附体',   tier:'epic', maxLv:2, desc:'伤害 +1',
+    apply:(s,lv)=>{ s.damageBonus += lv; } },
+  { id:'slack_mstr',name:'摸鱼大师',   tier:'epic', maxLv:2, desc:'摸鱼 +0.5s / 多-10压力',
+    apply:(s,lv)=>{ s.milkTeaBonus = lv; } },
+  { id:'adv_paste', name:'高级粘贴',   tier:'epic', maxLv:2, desc:'Ctrl+V +1 目标',
+    apply:(s,lv)=>{ s.pasteBonus = lv; } },
+  { id:'req_arch',  name:'需求考古学', tier:'epic', maxLv:2, desc:'@评论 -40%',
+    apply:(s,lv)=>{ s.commentDamageMult = 1 - lv*0.4; } },
+  { id:'silent_upg',name:'全公司静默升级',tier:'epic',maxLv:2,desc:'选卡后无敌 +1.5s',
+    apply:(s,lv)=>{ s.upgradeShield = lv*1.5; } },
+  { id:'n1_pkg',    name:'N+1大礼包',  tier:'epic', maxLv:2, desc:'首次拿清屏+毕业-50',
+    apply:(s,lv)=>{ s.n1Package = true; } },
+  { id:'burn_mid',  name:'熬夜修仙',   tier:'epic', maxLv:2, desc:'体力=0仍可打 每键+1压力',
+    apply:(s,lv)=>{ s.burnMidnight = true; } },
+  { id:'auto_click',name:'自动点击器', tier:'epic', maxLv:2, desc:'体力=0自动打字 50%攻速',
+    apply:(s,lv)=>{ s.autoClicker = true; } },
+  // Legendary 金 1级
+  { id:'muscle',    name:'996肌肉记忆',tier:'legendary', maxLv:1, desc:'17:00后伤害+2 充能+50%',
+    apply:(s)=>{ s.muscleMemory = true; } },
+  { id:'report',    name:'周报外挂',   tier:'legendary', maxLv:1, desc:'甩锅刷新充能',
+    apply:(s)=>{ s.weeklyReport = true; } },
+  { id:'equity',    name:'股权承诺书', tier:'legendary', maxLv:1, desc:'摸鱼期间毕业进度不涨',
+    apply:(s)=>{ s.kpiNoDrop = true; } },
+  { id:'double_pick',name:'双选',     tier:'legendary', maxLv:1, desc:'本次升级5选2',
+    apply:(s)=>{ s.doublePick = true; } },
+  { id:'stable',    name:'情绪稳定器', tier:'legendary', maxLv:1, desc:'压力≥70%仍可打字无惩罚',
+    apply:(s)=>{ s.stableMind = true; } },
+  { id:'counter',   name:'被动反击',   tier:'legendary', maxLv:1, desc:'被击中25%概率反弹',
+    apply:(s)=>{ s.passiveCounter = true; } },
+  { id:'blame_mstr',name:'甩锅大师',  tier:'legendary', maxLv:1, desc:'甩锅伤害 +100%',
+    apply:(s)=>{ s.blameDamageMult = 2; } },
+  { id:'addict',    name:'咖啡成瘾',   tier:'legendary', maxLv:1, desc:'体力<30%自动咖啡',
+    apply:(s)=>{ s.coffeeAddict = true; } },
 ];
 
-const TIER_WEIGHTS = { common: 50, rare: 25, epic: 12, legendary: 3, item: 10 };
-
-const WAVE = {
-  killsPerLevel: 15,
-  cardCount: 5,
-  bossPatrolGameMin: 14.5,
-  bossPatrolDuration: 6,
-  finalRushGameMin: 17.5,
-  rushDensityMult: 3,
-};
+const TIER_WEIGHTS = { common:50, rare:25, epic:12, legendary:3 };
+const ITEM_CARD_WEIGHT = 0; // v0.0.4 无道具卡，全是词条
 
 // ============================================================
-// === 游戏状态 ===
+// === 状态 ===
 // ============================================================
-
 const canvas = document.getElementById('game');
 const ctx = canvas.getContext('2d');
-let W = 0, H = 0;
-let mouseX = 0, mouseY = 0;
-
+let W=0, H=0, mouseX=0, mouseY=0;
 const State = { TITLE:'title', PLAYING:'playing', PAUSED:'paused', LEVEL_UP:'levelup', GAME_OVER:'gameover' };
-
 let game;
+
+function emptyStats() {
+  return {
+    atkSpeedBonus:0, damageBonus:0, energyRegenMult:1, energyOnKill:0, pressureOnKill:0,
+    imDamageMult:1, pressureIdleMult:1, commentBulletMult:1, approvalDrainMult:1, pressureRegenPerSec:0,
+    maxEnergyBonus:0, maxPressureBonus:0, leftDamageMult:1, chargeSpeedMult:1, coffeeBonus:0,
+    breathBonus:0, blameReturnReduce:0, damageBonus:0, milkTeaBonus:0, pasteBonus:0,
+    commentDamageMult:1, upgradeShield:0, n1Package:false, burnMidnight:false, autoClicker:false,
+    muscleMemory:false, weeklyReport:false, kpiNoDrop:false, doublePick:false, stableMind:false,
+    passiveCounter:false, blameDamageMult:1, coffeeAddict:false,
+    coffeeAddictCd:0,
+  };
+}
 
 function newGame() {
   return {
     state: State.TITLE,
-    time: 0,
-    gameMinute: TIME.startHour * 60,
-    player: {
-      x: 0, y: 0,
-      pressure: 0, energy: PLAYER.maxEnergy, grad: PLAYER.startGrad,
-      maxPressureBonus: 0, maxEnergyBonus: 0, maxGradBonus: 0,
-      stunTimer: 0,
-      slackTimer: 0,
-      invulnTimer: 0,
-      shield: false,
-      hitFlash: 0,
-      idleSince: 0, // 记录多久没敲键
-      // 演出
-      pose: 'typing', idleTimer: 0, poseX: 0, poseY: 0,
+    time:0, gameMinute: TIME.startHour*60,
+    player:{ x:0,y:0, pressure:0, energy:PLAYER.maxEnergy, grad:PLAYER.startGrad,
+      maxPressureBonus:0, maxEnergyBonus:0, maxGradBonus:0,
+      stunTimer:0, invulnTimer:0, hitFlash:0, lastAtk:0,
+      typing:false, idleTimer:0, pose:'typing', poseTimer:0,
     },
-    stats: {
-      atkMult: 1, damageBonus: 0, energyRegenMult: 1, pressureRegenPerSec: 0,
-      imDamageMult: 1, blameDamageMult: 1, meetingDamageMult: 1, commentDamageMult: 1,
-      coffeeAddict: false, stableMind: false, burnMidnight: false,
-      muscleMemory: false, weeklyReport: false,
-      coffeeAddictCd: 0,
-      blameReturnReduce: 0,
-      energyOnKill: 0, pressureOnKill: 0,
-      upgradeShield: false, headphoneBonus: false, pptArmorChance: 0,
-      approvalDrainMult: 1, kpiNoDrop: false, doubleItem: false,
-      nplusUsed: false, n1Package: false, n1Used: false,
-    },
-    enemies: [],
-    bullets: [],
-    particles: [],
-    items: [],       // { id, count, cd }
-    levelUps: [],    // 等待选择的卡
-    kills: 0,
-    killsSinceLevel: 0,
-    level: 0,
-    combo: 0,
-    maxCombo: 0,
-    comboTimer: 0,
-    itemUses: 0,
-    // 事件
-    bossPatrol: { active: false, timer: 0, angle: 0, dir: 1 },
-    finalRush: false,
-    // 按键
-    keys: {},
-    lastAtkTime: 0,
-    activeItemEffects: { coffee: 0, headphone: 0, blameLock: 0 },
-    // 结算
-    gameOverReason: '',
-    won: false,
-    // 生成计时
-    spawnTimer: 0,
-    startTime: 0,
+    stats: emptyStats(),
+    upgradeLevels: {},       // { upgradeId: level }
+    skillCharge:[0,0,0,0,0],
+    skillActive:[0,0,0,0,0], // 持续时间
+    enemies:[], bullets:[], particles:[],
+    levelUps:[], doublePickPending:false,
+    kills:0, killsSinceLevel:0, level:0, combo:0, maxCombo:0, comboTimer:0, itemUses:0,
+    bossPatrol:{active:false,timer:0,angle:0,dir:1}, kpiEvent:{active:false,timer:0,cd:0},
+    finalRush:false, startTime:0, endTime:0, won:false, gameOverReason:'',
+    lastAtkTime:0, spawnTimer:0, keys:{}, n1Used:false,
   };
 }
-
 game = newGame();
+function TIME(){ return performance.now()/1000; }
 
 // ============================================================
-// === 工具函数 ===
+// === 工具 ===
 // ============================================================
-
-function rand(a, b) { return a + Math.random() * (b - a); }
-function randInt(a, b) { return Math.floor(rand(a, b + 1)); }
-function clamp(v, lo, hi) { return Math.max(lo, Math.min(hi, v)); }
-function dist(x1, y1, x2, y2) { const dx = x1-x2, dy = y1-y2; return Math.sqrt(dx*dx+dy*dy); }
-function lerp(a, b, t) { return a + (b - a) * t; }
-
-function formatGameTime(gm) {
-  const h = Math.floor(gm / 60);
-  const m = Math.floor(gm % 60);
-  return `${h}:${String(m).padStart(2, '0')}`;
-}
-
-function pickWeighted(entries) {
-  const total = entries.reduce((s, e) => s + e.w, 0);
-  let r = Math.random() * total;
-  for (const e of entries) { r -= e.w; if (r <= 0) return e.v; }
-  return entries[entries.length - 1].v;
-}
-
-function addKillRewards() {
-  const p = game.player;
-  const s = game.stats;
-  if (s.energyOnKill) p.energy = Math.min(PLAYER.maxEnergy + p.maxEnergyBonus, p.energy + s.energyOnKill);
-  if (s.pressureOnKill) p.pressure = Math.max(0, p.pressure - s.pressureOnKill);
-  // 击杀降低毕业进度
-  p.grad = Math.max(0, p.grad - randInt(1, 3));
-}
-
-function getKillsForLevel(level) {
-  return Math.floor(15 * Math.pow(1.15, level));
-}
-
-function trySeverance() {
-  const p = game.player;
-  const sev = game.items.find(it => it.id === 'severance' && it.count > 0);
-  if (!sev) return false;
-  sev.count -= 1;
-  p.pressure = 20; p.energy = PLAYER.maxEnergy + p.maxEnergyBonus;
-  p.invulnTimer = 5;
-  p.shield = false;
-  spawnParticles(W/2, H/2, COLORS.green, '🧾 N+1 谈判成功！', 3);
-  return true;
-}
-
-function nearestEnemy(x, y) {
-  let best = null, bestD = Infinity;
-  for (const e of game.enemies) {
-    if (e.friendly) continue;
-    const d = dist(x, y, e.x, e.y);
-    if (d < bestD) { bestD = d; best = e; }
-  }
-  return best;
-}
-
-function workspaceSize() {
-  return Math.min(W, H) * PLAYER.workspaceRatio;
-}
-
-function workspaceRect() {
-  const s = workspaceSize();
-  return { x: W/2 - s/2, y: H/2 - s/2, w: s, h: s, cx: W/2, cy: H/2 };
-}
+const rand=(a,b)=>a+Math.random()*(b-a);
+const randInt=(a,b)=>Math.floor(rand(a,b+1));
+const clamp=(v,lo,hi)=>Math.max(lo,Math.min(hi,v));
+const dist=(x1,y1,x2,y2)=>{const dx=x1-x2,dy=y1-y2;return Math.sqrt(dx*dx+dy*dy)};
+const lerp=(a,b,t)=>a+(b-a)*t;
+function formatGameTime(gm){ const h=Math.floor(gm/60),m=Math.floor(gm%60); return `${h}:${String(m).padStart(2,'0')}`; }
+function pickWeighted(es){ const t=es.reduce((s,e)=>s+e.w,0); let r=Math.random()*t; for(const e of es){r-=e.w;if(r<=0)return e.v;} return es[es.length-1].v; }
+function workspaceRect(){ const s=Math.min(W,H)*PLAYER.workspaceRatio; return{x:W/2-s/2,y:H/2-s/2,w:s,h:s,cx:W/2,cy:H/2,s}; }
+function nearestEnemy(x,y){ let b=null,bd=Infinity; for(const e of game.enemies){ if(e.friendly||e.fleeing) continue; const d=dist(x,y,e.x,e.y); if(d<bd){bd=d;b=e;} } return b; }
+function nearestNEnemies(x,y,n){ return game.enemies.filter(e=>!e.friendly&&!e.fleeing).map(e=>({e,d:dist(x,y,e.x,e.y)})).sort((a,b)=>a.d-b.d).slice(0,n).map(a=>a.e); }
 
 // ============================================================
-// === 引擎核心 ===
-// ============================================================
-
-function spawnEnemy(type) {
-  const cfg = ENEMIES[type];
-  // 从四边随机生成
-  const side = randInt(0, 3);
-  let x, y;
-  const margin = 40;
-  if (side === 0) { x = rand(-margin, W + margin); y = -margin; }
-  else if (side === 1) { x = W + margin; y = rand(-margin, H + margin); }
-  else if (side === 2) { x = rand(-margin, W + margin); y = H + margin; }
-  else { x = -margin; y = rand(-margin, H + margin); }
-  const ws = workspaceRect();
-  const dx = ws.cx - x, dy = ws.cy - y;
-  const len = Math.sqrt(dx*dx + dy*dy) || 1;
-  const speedMult = game.finalRush ? 1.0 : 1.0;
-  const texts = cfg.texts || [''];
-  const text = texts[randInt(0, texts.length - 1)];
-  // 气泡宽度根据文字长度计算
-  ctx.font = '13px -apple-system, "PingFang SC", sans-serif';
-  const tw = ctx.measureText(text).width;
-  const bw = Math.max(cfg.size * 2.5, tw + 20);
-  const bh = cfg.size * 1.8;
-  game.enemies.push({
-    type, x, y,
-    vx: dx/len * cfg.speed * speedMult,
-    vy: dy/len * cfg.speed * speedMult,
-    hp: cfg.hp, maxHp: cfg.hp,
-    size: cfg.size, bw, bh,
-    color: cfg.color,
-    damage: cfg.damage,
-    label: cfg.label,
-    stun: cfg.stun || 0,
-    friendly: false,
-    life: 0,
-    text,
-  });
-}
-
 // === 音频 ===
-let audioCtx = null;
-function playKeySound(opts) {
-  try {
-    if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-    if (audioCtx.state === 'suspended') audioCtx.resume();
-    const osc = audioCtx.createOscillator();
-    const gain = audioCtx.createGain();
-    const baseFreq = opts.isSpace ? 500 : opts.isEnter ? 700 : rand(800, 1200);
-    osc.type = 'square';
-    osc.frequency.setValueAtTime(baseFreq, audioCtx.currentTime);
-    gain.gain.setValueAtTime(0.04, audioCtx.currentTime);
-    gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.02);
-    osc.connect(gain); gain.connect(audioCtx.destination);
-    osc.start(); osc.stop(audioCtx.currentTime + 0.02);
-  } catch(e) { /* 音频失败不影响游戏 */ }
+// ============================================================
+let audioCtx=null;
+function playKeySound(){
+  try{ if(!audioCtx) audioCtx=new (window.AudioContext||window.webkitAudioContext)();
+    if(audioCtx.state==='suspended') audioCtx.resume();
+    const o=audioCtx.createOscillator(), g=audioCtx.createGain();
+    o.type='square'; o.frequency.value=rand(700,1100);
+    g.gain.setValueAtTime(0.03,audioCtx.currentTime);
+    g.gain.exponentialRampToValueAtTime(0.001,audioCtx.currentTime+0.02);
+    o.connect(g); g.connect(audioCtx.destination); o.start(); o.stop(audioCtx.currentTime+0.02);
+  }catch(e){}
 }
 
-function fireBullet(char, opts = {}) {
-  const p = game.player;
-  const ws = workspaceRect();
-  const target = nearestEnemy(p.x, p.y);
-  let vx = 0, vy = -8;
-  if (target) {
-    const dx = target.x - p.x, dy = target.y - p.y;
-    const len = Math.sqrt(dx*dx+dy*dy) || 1;
-    const spd = opts.isSpace ? 7 : 8;
-    vx = dx/len * spd;
-    vy = dy/len * spd;
-  } else {
-    vx = rand(-1, 1);
-    vy = -8;
-  }
-  let dmg = PLAYER.baseDamage + game.stats.damageBonus;
-  if (opts.isSpace) dmg += 1;
-  // 压力高时按错键：fumble
-  let displayChar = char;
-  let aimOffset = { x: 0, y: 0 };
-  const maxPressure = PLAYER.maxPressure + p.maxPressureBonus;
-  if (p.pressure >= maxPressure * 0.7) {
-    // 高压力：25% 概率打出错误字母 + 方向偏移
-    if (Math.random() < 0.25) {
-      displayChar = String.fromCharCode(65 + randInt(0, 25));
-      aimOffset = { x: rand(-1.5, 1.5), y: rand(-1.5, 1.5) };
-    }
-    // 乱码
-    if (Math.random() < 0.15) {
-      const garbage = '★☆♠♣♥♦✿❀☁☂☀☾';
-      displayChar = garbage[randInt(0, garbage.length-1)];
-    }
-  } else if (p.pressure >= maxPressure * 0.5 && Math.random() < 0.15) {
-    // 中压力：15% 概率轻微偏移/错字
-    if (Math.random() < 0.5) {
-      displayChar = String.fromCharCode(65 + randInt(0, 25));
-    }
-    aimOffset = { x: rand(-0.6, 0.6), y: rand(-0.6, 0.6) };
-  }
-  game.bullets.push({
-    x: ws.cx, y: ws.cy,
-    vx, vy,
-    damage: dmg,
-    char: displayChar,
-    friendly: true,
-    life: 0,
-    color: opts.isSpace ? COLORS.cyan : (opts.isEnter ? COLORS.green : COLORS.white),
-    isSpace: !!opts.isSpace,
-    isEnter: !!opts.isEnter,
-    pierceLeft: opts.isEnter ? 1 : 0,
-    size: opts.isSpace ? 1.3 : 1.0,
-    trail: [],
+// ============================================================
+// === 敌人生成 ===
+// ============================================================
+function spawnEnemy(type){
+  const cfg=ENEMIES[type];
+  const side=randInt(0,3); let x,y; const m=40;
+  if(side===0){x=rand(-m,W+m);y=-m;}else if(side===1){x=W+m;y=rand(-m,H+m);}
+  else if(side===2){x=rand(-m,W+m);y=H+m;}else{x=-m;y=rand(-m,H+m);}
+  const ws=workspaceRect(), dx=ws.cx-x, dy=ws.cy-y, len=Math.sqrt(dx*dx+dy*dy)||1;
+  const texts=cfg.texts||[''], text=texts[randInt(0,texts.length-1)];
+  ctx.font='13px -apple-system, "PingFang SC", sans-serif';
+  const tw=ctx.measureText(text).width, bw=Math.max(cfg.size*2.5,tw+20), bh=cfg.size*1.8;
+  game.enemies.push({ type,x,y, vx:dx/len*cfg.speed, vy:dy/len*cfg.speed,
+    hp:cfg.hp,maxHp:cfg.hp,size:cfg.size,bw,bh,color:cfg.color,dmg:cfg.dmg,label:cfg.label,
+    stun:cfg.stun||0, drain:cfg.drain||0, friendly:false, life:0, text,
+    shootTimer:0, stationary:false, boomerang:0,
   });
-  // 应用瞄准偏移
-  const last = game.bullets[game.bullets.length-1];
-  last.vx += aimOffset.x;
-  last.vy += aimOffset.y;
-  // 精力消耗
+}
+
+// ============================================================
+// === 子弹 ===
+// ============================================================
+function fireBullet(char, opts={}){
+  const p=game.player, ws=workspaceRect();
+  const spd = opts.isSpace?7:8;
+  let dmg = PLAYER.baseDamage + game.stats.damageBonus;
+  if(opts.isSpace) dmg+=1;
+
+  // 压力高 fumble
+  let displayChar=char, aimOff=0;
+  const maxP=PLAYER.maxPressure+p.maxPressureBonus;
+  if(p.pressure>=maxP*0.7){
+    if(Math.random()<0.25){ displayChar=String.fromCharCode(65+randInt(0,25)); aimOff=rand(-1.5,1.5); }
+    if(Math.random()<0.15){ const g='★☆♠♣♥♦✿❀☁☂☀☾'; displayChar=g[randInt(0,g.length-1)]; }
+  } else if(p.pressure>=maxP*0.5 && Math.random()<0.15){
+    if(Math.random()<0.5) displayChar=String.fromCharCode(65+randInt(0,25));
+    aimOff=rand(-0.6,0.6);
+  }
+
+  // Ctrl+V 多发追踪
+  if(game.skillActive[1] > 0){
+    const tars = nearestNEnemies(ws.cx, ws.cy, 3 + game.stats.pasteBonus);
+    for(const target of tars){
+      const dx=target.x-ws.cx, dy=target.y-ws.cy, l=Math.sqrt(dx*dx+dy*dy)||1;
+      game.bullets.push({x:ws.cx,y:ws.cy, vx:dx/l*spd+aimOff, vy:dy/l*spd+aimOff,
+        damage:dmg, char:displayChar, friendly:true, life:0, color:COLORS.white,
+        isSpace:!!opts.isSpace,isEnter:!!opts.isEnter,pierceLeft:opts.isEnter?1:0,
+        size:opts.isSpace?1.3:1.0, trail:[],
+      });
+    }
+  } else {
+    const target=nearestEnemy(p.x,p.y);
+    let vx=rand(-1,1), vy=-8;
+    if(target){ const dx=target.x-ws.cx,dy=target.y-ws.cy,l=Math.sqrt(dx*dx+dy*dy)||1;
+      vx=dx/l*spd+aimOff; vy=dy/l*spd+aimOff; }
+    game.bullets.push({x:ws.cx,y:ws.cy,vx,vy,damage:dmg,char:displayChar,friendly:true,life:0,
+      color:opts.isSpace?COLORS.cyan:(opts.isEnter?COLORS.green:COLORS.white),
+      isSpace:!!opts.isSpace,isEnter:!!opts.isEnter,pierceLeft:opts.isEnter?1:0,
+      size:opts.isSpace?1.3:1.0, trail:[],
+    });
+  }
   p.energy -= PLAYER.energyCostPerKey;
-  game.combo += 1;
-  game.maxCombo = Math.max(game.maxCombo, game.combo);
-  game.comboTimer = 2.0;
-  p.pose = 'typing';
-  p.idleTimer = 0;
+  game.combo++; game.maxCombo=Math.max(game.maxCombo,game.combo); game.comboTimer=2.0;
+  p.pose='typing'; p.poseTimer=0; p.lastAtk=TIME();
   playKeySound(opts);
 }
 
-function useItem(slot) {
-  const ws = workspaceRect();
-  const item = game.items[slot];
-  if (!item || item.count <= 0) return;
-  if (item.cd > 0) return;
-  if (game.bossPatrol.active && item.id === 'milk_tea') {
-    game.player.pressure = Math.min(PLAYER.maxPressure + game.player.maxPressureBonus, game.player.pressure + 40);
-    game.player.hitFlash = 0.3;
-    item.count -= 1;
-    item.cd = ITEMS[item.id].cd;
-    spawnParticles(W/2, 80, COLORS.red, '👀 老板看着呢！', 2);
-    if (game.player.pressure >= PLAYER.maxPressure + game.player.maxPressureBonus) endGame(false, '被老板抓现行');
-    return;
-  }
-  if (game.bossPatrol.active || (game.kpiEvent && game.kpiEvent.active)) {
-    spawnParticles(W/2, 80, COLORS.yellow, game.kpiEvent && game.kpiEvent.active ? '📢 领导约谈中！' : '👀 老板看着呢！', 1.5);
-    return;
-  }
+// ============================================================
+// === 技能充能与释放 ===
+// ============================================================
+function addSkillCharge(idx, amount){
+  const s=SKILLS[idx]; if(!s) return;
+  const need = s.chargeNeed / game.stats.chargeSpeedMult;
+  game.skillCharge[idx] = Math.min(need, game.skillCharge[idx]+amount);
+}
+function canUseSkill(idx){ return game.skillCharge[idx] >= SKILLS[idx].chargeNeed/game.stats.chargeSpeedMult; }
 
-  switch (item.id) {
-    case 'milk_tea':
-      game.player.slackTimer = TIME.slackDuration;
-      game.player.invulnTimer = TIME.slackDuration;
-      game.player.pressure = Math.max(0, game.player.pressure - 30);
-      game.player.energy = Math.min(game.player.maxEnergy + game.player.maxEnergyBonus, game.player.energy + 25);
-      game.player.pose = 'tea';
-      game.player.idleTimer = 0;
+function useSkill(idx){
+  if(!canUseSkill(idx)||game.player.stunTimer>0||game.kpiEvent.active) return;
+  const s=SKILLS[idx];
+  const p=game.player;
+  switch(s.id){
+    case 'coffee':
+      game.skillActive[0] = s.duration + game.stats.coffeeBonus;
       break;
-    case 'blame_sticker':
-      for (const e of game.enemies) {
-        if (e.friendly) continue;
-        if (e.type === 'colleague') {
-          e.friendly = true;
-          e.color = COLORS.orange;
-          e.damage = 10 * game.stats.blameDamageMult;
-          e.vx = -e.vx; e.vy = -e.vy;
+    case 'paste':
+      game.skillActive[1] = s.duration;
+      break;
+    case 'milktea':
+      game.skillActive[2] = s.duration + game.stats.milkTeaBonus*0.5;
+      p.invulnTimer = s.duration + game.stats.milkTeaBonus*0.5;
+      p.pressure = Math.max(0, p.pressure - 20 - game.stats.milkTeaBonus*10);
+      break;
+    case 'breath':
+      game.skillActive[3] = s.duration;
+      break;
+    case 'blame':
+      for(const e of game.enemies){
+        if(e.friendly) continue;
+        if(e.type==='colleague'){
+          e.friendly=true; e.color=COLORS.orange; e.damage=10*game.stats.blameDamageMult;
+          e.vx=-e.vx; e.vy=-e.vy;
         } else {
-          e.vx = -e.vx; e.vy = -e.vy;
-          e.fleeing = true;
-          e.boomerang = 1; // 飞出屏幕后回飞一次
+          e.vx=-e.vx; e.vy=-e.vy; e.fleeing=true;
+          e.boomerang = Math.max(0, 1 - game.stats.blameReturnReduce);
         }
       }
-      game.activeItemEffects.blameLock = 2;
-      game.player.pressure = Math.min(PLAYER.maxPressure + game.player.maxPressureBonus, game.player.pressure + 5);
-      if (game.stats.weeklyReport) {
-        // 刷新自己CD
-        item.cd = 0;
-        item.count += 1; // 不消耗
-      }
-      break;
-    case 'coffee':
-      game.activeItemEffects.coffee = 5;
-      break;
-    case 'ppt_armor':
-      game.player.shield = true;
-      break;
-    case 'headphone':
-      game.activeItemEffects.headphone = 5;
-      break;
-    case 'severance':
-      // 效果在死亡时触发
-      break;
+      p.pressure = Math.max(0, p.pressure+5);
+      p.grad = 0;
+      if(game.stats.weeklyReport){ /* 不消耗充能 */ }
+      else game.skillCharge[4]=0;
+      return;
   }
-  item.count -= 1;
-  item.cd = ITEMS[item.id].cd;
-  game.itemUses += 1;
+  game.skillCharge[idx]=0;
 }
 
-function applyUpgrade(upg) {
-  upg.apply(game.stats);
-  game.level += 1;
-  // 词条附带效果
-  if (game.stats.upgradeShield) {
-    game.player.invulnTimer = Math.max(game.player.invulnTimer, 3);
+// ============================================================
+// === 升级 ===
+// ============================================================
+function getKillsForLevel(lv){ return Math.floor(15*Math.pow(1.15, lv)); }
+function getUpgradeById(id){ return UPGRADES.find(u=>u.id===id); }
+function getCurrentLevel(id){ return game.upgradeLevels[id]||0; }
+
+function pickUpgradeCards(count){
+  const available = UPGRADES.filter(u=>{
+    const lv = getCurrentLevel(u.id);
+    return lv < u.maxLv;
+  });
+  const cards=[];
+  const usedIds=new Set();
+  let tries=0;
+  while(cards.length<count && tries<100 && available.length>0){
+    tries++;
+    const tier = pickWeighted([
+      {v:'common',w:TIER_WEIGHTS.common},
+      {v:'rare',w:TIER_WEIGHTS.rare},
+      {v:'epic',w:TIER_WEIGHTS.epic},
+      {v:'legendary',w:TIER_WEIGHTS.legendary},
+    ]);
+    let pool = available.filter(u=>u.tier===tier && !usedIds.has(u.id));
+    if(pool.length===0) pool=available.filter(u=>!usedIds.has(u.id));
+    if(pool.length===0) break;
+    const upg = pool[randInt(0,pool.length-1)];
+    usedIds.add(upg.id);
+    cards.push({type:'upgrade', upg});
   }
-  if (game.stats.energyOnKill) game.player.energy = Math.min(PLAYER.maxEnergy + game.player.maxEnergyBonus, game.player.energy + game.stats.energyOnKill);
-  if (game.stats.pressureOnKill) game.player.pressure = Math.max(0, game.player.pressure - game.stats.pressureOnKill);
-  // 初次拿 N+1 大礼包
-  if (upg.id === 'n1_pkg' && !game.stats.n1Used) {
-    game.stats.n1Used = true;
-    game.player.grad = Math.min(PLAYER.maxGrad + game.player.maxGradBonus, game.player.grad + 100);
-    // 清屏
-    for (const e of game.enemies) {
-      if (!e.friendly && !e.fleeing) { e.hp = 0; game.kills++; game.killsSinceLevel++; }
-    }
-    game.enemies = game.enemies.filter(e => e.hp > 0 || e.friendly || e.fleeing);
-  }
+  return cards;
 }
 
-function triggerLevelUp() {
-  game.state = State.LEVEL_UP;
-  game.levelUps = [];
-  const usedIds = new Set();
-  // 动态稀有度权重：随等级降低 common，提升 epic/legendary
-  const lv = game.level;
-  const commonW = Math.max(20, TIER_WEIGHTS.common - lv * 1.5);
-  const rareW = TIER_WEIGHTS.rare + lv * 0.3;
-  const epicW = TIER_WEIGHTS.epic + lv * 0.8;
-  const legendaryW = TIER_WEIGHTS.legendary + lv * 0.4;
-  const tierWeights = [
-    { v: 'common', w: commonW },
-    { v: 'rare', w: rareW },
-    { v: 'epic', w: epicW },
-    { v: 'legendary', w: legendaryW },
-  ];
-  const itemKeys = Object.keys(ITEMS);
-  let attempts = 0;
-  while (game.levelUps.length < WAVE.cardCount && attempts < 50) {
-    attempts++;
-    const roll = Math.random() * 100;
-    if (roll < TIER_WEIGHTS.item) {
-      const availItems = itemKeys.filter(k => !usedIds.has('item:'+k));
-      if (availItems.length === 0) continue;
-      const id = availItems[randInt(0, availItems.length - 1)];
-      usedIds.add('item:'+id);
-      game.levelUps.push({ type: 'item', id });
-    } else {
-      const tier = pickWeighted(tierWeights);
-      let pool = UPGRADES.filter(u => u.tier === tier && !usedIds.has('upg:'+u.id));
-      if (pool.length === 0) pool = UPGRADES.filter(u => !usedIds.has('upg:'+u.id));
-      if (pool.length === 0) break;
-      const upg = pool[randInt(0, pool.length - 1)];
-      usedIds.add('upg:'+upg.id);
-      game.levelUps.push({ type: 'upgrade', upg });
-    }
+function triggerLevelUp(doublePick){
+  game.state=State.LEVEL_UP;
+  game.levelUps = pickUpgradeCards(5);
+  game.doublePickPending = !!doublePick;
+  if(game.stats.upgradeShield>0) game.player.invulnTimer = Math.max(game.player.invulnTimer, game.stats.upgradeShield);
+}
+
+function applyUpgrade(upg){
+  const lv = getCurrentLevel(upg.id);
+  if(lv >= upg.maxLv) return;
+  game.upgradeLevels[upg.id] = lv+1;
+  upg.apply(game.stats, lv+1);
+  game.level++;
+
+  // N+1 首次拿清屏
+  if(upg.id==='n1_pkg'&&!game.n1Used){ game.n1Used=true;
+    for(const e of game.enemies) if(!e.friendly&&!e.fleeing){ e.hp=0; game.kills++; game.killsSinceLevel++; }
+    game.enemies = game.enemies.filter(e=>e.hp>0||e.friendly||e.fleeing);
+    game.player.grad = Math.max(0, game.player.grad-50);
   }
 }
 
-function pickLevelCard(idx) {
-  if (idx < 0 || idx >= game.levelUps.length) return;
-  const card = game.levelUps[idx];
-  if (card.type === 'item') {
-    // 检查是否已有
-    let existing = game.items.find(it => it.id === card.id);
-    if (existing) {
-      existing.count += 1;
-    } else if (game.items.length < 5) {
-      game.items.push({ id: card.id, count: 1, cd: 0 });
-    } else {
-      spawnParticles(W/2, H/2, COLORS.yellow, '道具栏已满！', 1.5);
+function pickLevelCard(idx){
+  if(idx<0||idx>=game.levelUps.length) return;
+  const card=game.levelUps[idx];
+  if(card.type==='upgrade'){
+    applyUpgrade(card.upg);
+    game.levelUps=[];
+    if(game.doublePickPending){
+      game.doublePickPending=false;
+      game.levelUps = pickUpgradeCards(5).filter(c=>c.upg.tier!=='legendary');
       return;
     }
+    if(card.upg.id==='double_pick'){
+      // 双选：立刻再选一张非金
+      game.levelUps = pickUpgradeCards(5).filter(c=>c.upg.tier!=='legendary');
+      return;
+    }
+  }
+  game.state=State.PLAYING;
+}
+
+// ============================================================
+// === 主 tick ===
+// ============================================================
+let lastTime=0;
+function tick(dt){
+  if(game.state!==State.PLAYING) return;
+  const p=game.player, ws=workspaceRect();
+  const now=TIME();
+
+  // 时间
+  game.gameMinute += TIME.gameMinutesPerRealSec*dt;
+  if(game.gameMinute>=TIME.endHour*60){ endGame(true); return; }
+  const gm=game.gameMinute/60;
+
+  // 老板查岗
+  if(gm>=14.5 && gm<(14.5+6/60) && !game.bossPatrol.active){
+    game.bossPatrol.active=true; game.bossPatrol.timer=6; game.bossPatrol.angle=-Math.PI/2;
+    spawnParticles(W/2,100,COLORS.red,'👔 老板查岗！',2);
+  }
+  if(game.bossPatrol.active){
+    game.bossPatrol.timer-=dt;
+    game.bossPatrol.angle += game.bossPatrol.dir*dt*0.8;
+    if(game.bossPatrol.timer<=0) game.bossPatrol.active=false;
+  }
+
+  // 下班准备期
+  if(!game.finalRush && gm>=17.5){
+    game.finalRush=true;
+    spawnParticles(W/2,H/3,COLORS.red,'🚨 下班准备期！',3);
+  }
+
+  // 状态计时
+  for(let i=0;i<5;i++){
+    if(game.skillActive[i]>0) game.skillActive[i]=Math.max(0,game.skillActive[i]-dt);
+  }
+  p.invulnTimer=Math.max(0,p.invulnTimer-dt);
+  p.stunTimer=Math.max(0,p.stunTimer-dt);
+  p.hitFlash=Math.max(0,p.hitFlash-dt);
+  p.comboTimer=Math.max(0,p.comboTimer-dt);
+  if(p.comboTimer<=0) game.combo=0;
+
+  // 咖啡成瘾自动触发
+  if(game.stats.coffeeAddict && p.energy<30 && game.skillActive[0]<=0 && game.stats.coffeeAddictCd<=0){
+    game.skillActive[0] = 4; game.stats.coffeeAddictCd=30;
+  }
+  if(game.stats.coffeeAddictCd>0) game.stats.coffeeAddictCd-=dt;
+
+  // 打字检测
+  const typing = p.lastAtk && (now-p.lastAtk<0.5);
+  const slack = game.skillActive[2]>0;
+  const coffee = game.skillActive[0]>0;
+  const breath = game.skillActive[3]>0;
+
+  // 体力回复/消耗
+  if(!slack){
+    p.energy = Math.min(PLAYER.maxEnergy+p.maxEnergyBonus,
+      p.energy + PLAYER.energyRegenPerSec*game.stats.energyRegenMult*dt);
+  }
+
+  // 压力逻辑
+  if(slack){
+    p.pressure = Math.max(0, p.pressure - 8*dt);
+  } else if(breath){
+    p.pressure = Math.max(0, p.pressure - (4+game.stats.breathBonus)*dt);
   } else {
-    applyUpgrade(card.upg);
+    if(typing) p.pressure = Math.min(PLAYER.maxPressure+p.maxPressureBonus, p.pressure + PLAYER.pressureTypingRise*dt);
+    else p.pressure = Math.max(0, p.pressure - PLAYER.pressureIdleFall*game.stats.pressureIdleMult*dt);
   }
-  game.levelUps = [];
-  game.state = State.PLAYING;
-}
+  if(game.stats.pressureRegenPerSec>0 && !typing)
+    p.pressure = Math.max(0, p.pressure - game.stats.pressureRegenPerSec*dt);
 
-function endGame(won, reason) {
-  game.won = won;
-  game.gameOverReason = reason || (won ? '下班成功' : '加班猝死');
-  game.endTime = performance.now() / 1000;
-  game.state = State.GAME_OVER;
-}
+  // 毕业进度
+  if(slack && !game.stats.kpiNoDrop) p.grad = Math.min(PLAYER.maxGrad+p.maxGradBonus, p.grad+PLAYER.gradRisePerSec*2*dt);
+  else if(typing && !slack) p.grad = Math.max(0, p.grad - PLAYER.gradFallPerSec*dt);
+  else if(!slack) p.grad = Math.min(PLAYER.maxGrad+p.maxGradBonus, p.grad+PLAYER.gradRisePerSec*dt);
 
-function spawnParticles(x, y, color, text, duration) {
-  game.particles.push({ x, y, color, text, life: duration, maxLife: duration, vy: -1.5 });
-}
-
-// ============================================================
-// === Tick 更新 ===
-// ============================================================
-
-let lastTime = 0;
-
-function tick(dt) {
-  if (game.state !== State.PLAYING) return;
-
-  const p = game.player;
-  const ws = workspaceRect();
-  const now = performance.now() / 1000;
-
-  // 时间推进
-  game.gameMinute += TIME.gameMinutesPerRealSec * dt;
-  if (game.gameMinute >= TIME.endHour * 60) {
-    endGame(true);
-    return;
+  // 毕业进度满→约谈
+  if(p.grad>=PLAYER.maxGrad+p.maxGradBonus && !game.kpiEvent.active && game.kpiEvent.cd<=0){
+    game.kpiEvent.active=true; game.kpiEvent.timer=5; game.kpiEvent.cd=20; p.grad=30;
+    spawnParticles(W/2,100,COLORS.red,'⚠️ 你被优化了！',2);
+  }
+  if(game.kpiEvent.cd>0) game.kpiEvent.cd-=dt;
+  if(game.kpiEvent.active){
+    game.kpiEvent.timer-=dt;
+    if(game.kpiEvent.timer<=0) game.kpiEvent.active=false;
   }
 
-  // 事件
-  const gm = game.gameMinute;
-  if (!game.bossPatrol.active && gm >= WAVE.bossPatrolGameMin * 60 && gm < (WAVE.bossPatrolGameMin + WAVE.bossPatrolDuration / 60) * 60) {
-    game.bossPatrol.active = true;
-    game.bossPatrol.timer = WAVE.bossPatrolDuration;
-    game.bossPatrol.angle = -Math.PI / 2;
-    game.bossPatrol.dir = 1;
-  }
-  if (game.bossPatrol.active) {
-    game.bossPatrol.timer -= dt;
-    game.bossPatrol.angle += game.bossPatrol.dir * dt * 0.8;
-    if (game.bossPatrol.timer <= 0) game.bossPatrol.active = false;
-  }
-  if (!game.finalRush && gm >= WAVE.finalRushGameMin * 60) {
-    game.finalRush = true;
-    spawnParticles(W/2, H/3, COLORS.red, '🚨 下班准备期 · 撑住！', 3);
-  }
-
-  // 约谈事件计时
-  if (!game.kpiEvent) game.kpiEvent = { active: false, timer: 0, cd: 0 };
-  if (game.kpiEvent.cd > 0) game.kpiEvent.cd -= dt;
-  if (game.kpiEvent.active) {
-    game.kpiEvent.timer -= dt;
-    if (game.kpiEvent.timer <= 0) game.kpiEvent.active = false;
-  }
-
-  // 玩家状态
-  p.invulnTimer = Math.max(0, p.invulnTimer - dt);
-  p.stunTimer = Math.max(0, p.stunTimer - dt);
-  p.slackTimer = Math.max(0, p.slackTimer - dt);
-  p.hitFlash = Math.max(0, p.hitFlash - dt);
-  p.comboTimer = Math.max(0, p.comboTimer - dt);
-  if (p.comboTimer <= 0) game.combo = 0;
-  if (p.idleTimer > 0) p.idleTimer -= dt;
-
-  // 道具效果计时
-  for (const key of Object.keys(game.activeItemEffects)) {
-    if (key === 'blameLock') continue;
-    game.activeItemEffects[key] = Math.max(0, game.activeItemEffects[key] - dt);
-  }
-  game.activeItemEffects.blameLock = Math.max(0, game.activeItemEffects.blameLock - dt);
-
-  // 道具 CD
-  for (const item of game.items) {
-    if (item.cd > 0) item.cd = Math.max(0, item.cd - dt);
-    if (item.count <= 0 && item.cd <= 0) {
-      // 保留空槽位，但不显示
+  // 自动点击器：体力=0 自动打字
+  if(game.stats.autoClicker && p.energy<=0 && !coffee && p.stunTimer<=0 && !slack){
+    if(Math.random()<0.5*dt*7){
+      const ch = String.fromCharCode(65+randInt(0,25));
+      p.lastAtk = now;
+      // 模拟按键
+      fireBullet(ch);
+      p.energy -= PLAYER.energyCostPerKey;
     }
   }
 
-  // 精力回复
-  const slack = p.slackTimer > 0;
-  if (!slack) {
-    p.energy = Math.min(PLAYER.maxEnergy + p.maxEnergyBonus,
-      p.energy + PLAYER.energyRegenPerSec * game.stats.energyRegenMult * dt);
-  }
-  // 词条减压力
-  if (game.stats.pressureRegenPerSec > 0) {
-    p.pressure = Math.max(0, p.pressure - game.stats.pressureRegenPerSec * dt);
-  }
-  // 不打字期间压力缓降、毕业进度涨；打字期间毕业进度降
-  const typing = game.lastAtkTime && (performance.now()/1000 - game.lastAtkTime < 0.5);
-  if (!typing && !slack) {
-    p.pressure = Math.max(0, p.pressure - PLAYER.pressureIdleFall * dt);
-    p.grad = Math.min(PLAYER.maxGrad + p.maxGradBonus, p.grad + PLAYER.gradRisePerSec * dt);
-  } else if (typing && !slack) {
-    p.grad = Math.max(0, p.grad - PLAYER.gradFallPerSec * dt);
-  }
-  if (slack) {
-    p.grad = Math.min(PLAYER.maxGrad + p.maxGradBonus, p.grad + PLAYER.gradRisePerSec * 2 * dt);
-    p.pressure = Math.max(0, p.pressure - 8 * dt);
-  }
-
-  // 毕业进度满触发优化谈话
-  if (p.grad >= PLAYER.maxGrad + p.maxGradBonus && !game.kpiEvent.active && (!game.kpiEvent.cd || game.kpiEvent.cd <= 0)) {
-    game.kpiEvent.active = true;
-    game.kpiEvent.timer = 5;
-    game.kpiEvent.cd = 20;
-    p.grad = 30;
-    spawnParticles(W/2, 100, COLORS.red, '⚠️ 你被优化了！伤害翻倍', 2);
-  }
-
-  // 咖啡成瘾自动触发
-  if (game.stats.coffeeAddict && p.energy < 30 && game.stats.coffeeAddictCd <= 0) {
-    game.activeItemEffects.coffee = 3;
-    game.stats.coffeeAddictCd = 30;
-  }
-  if (game.stats.coffeeAddictCd > 0) game.stats.coffeeAddictCd -= dt;
+  // 技能充能（按来源累积）
+  // 咖啡(0)、Ctrl+V(1)：按键数
+  // 摸鱼(2)：体力消耗已在 fireBullet 中累计
+  // 深呼吸(3)：压力上涨累计
+  // 甩锅(5→4)：毕业进度上涨累计（在毕业进度涨时加）
 
   // 敌人生成
-  let spawnRate = 0.8;
-  const gameHour = gm / 60;
-  if (gameHour < 10) spawnRate = 0.9;
-  else if (gameHour < 11.5) spawnRate = 0.7;
-  else if (gameHour < 13.5) spawnRate = 0.55;
-  else if (gameHour < 14.5) spawnRate = 0.45;
-  else if (gameHour < 16) spawnRate = 0.35;
-  else spawnRate = 0.28;
-  if (game.finalRush) spawnRate /= WAVE.rushDensityMult;
-  if (game.bossPatrol.active) spawnRate *= 0.7;
+  let spawnRate=0.8;
+  if(gm<10)spawnRate=0.9; else if(gm<11.5)spawnRate=0.7; else if(gm<13.5)spawnRate=0.55;
+  else if(gm<14.5)spawnRate=0.45; else if(gm<16)spawnRate=0.35; else spawnRate=0.28;
+  if(game.finalRush) spawnRate/=3;
+  if(game.bossPatrol.active) spawnRate*=0.7;
 
-  // 同事和会议的概率
-  game.spawnTimer += dt;
-  while (game.spawnTimer >= spawnRate) {
-    game.spawnTimer -= spawnRate;
-    let type = 'im';
-    const r = Math.random();
-    if (gameHour >= 10 && r < 0.12) type = 'colleague';
-    else if (gameHour >= 11 && r < 0.18) type = 'meeting';
-    else if (gameHour >= 12 && r < 0.22) type = 'approval';
-    else if (gameHour >= 13.5 && r < 0.27) type = 'comment';
-    else if (gameHour >= 14.5 && r < 0.30) type = 'okr';
+  game.spawnTimer+=dt;
+  while(game.spawnTimer>=spawnRate){
+    game.spawnTimer-=spawnRate;
+    let type='im'; const r=Math.random();
+    if(gm>=10 && r<0.12) type='colleague';
+    else if(gm>=11 && r<0.18) type='meeting';
+    else if(gm>=12 && r<0.22) type='approval';
+    else if(gm>=13.5 && r<0.27) type='comment';
+    else if(gm>=14.5 && r<0.30) type='okr';
     spawnEnemy(type);
   }
 
   // 敌人更新
-  for (let i = game.enemies.length - 1; i >= 0; i--) {
-    const e = game.enemies[i];
-    e.life += dt;
-
-    if (!slack) {
-      e.x += e.vx * 60 * dt;
-      e.y += e.vy * 60 * dt;
+  for(let i=game.enemies.length-1;i>=0;i--){
+    const e=game.enemies[i];
+    e.life+=dt;
+    if(!slack){
+      e.x += e.vx*60*dt; e.y += e.vy*60*dt;
     }
 
-    // 飞出屏幕很远就移除（反弹飞出去的）
-    if (e.fleeing || e.friendly) {
-      if (e.x < -100 || e.x > W + 100 || e.y < -100 || e.y > H + 100) {
-        if (e.boomerang && e.boomerang > 0) {
-          // 回旋锅：反向朝中心飞回
-          e.boomerang -= 1;
-          e.fleeing = false;
-          e.friendly = false;
-          e.color = COLORS.orange;
-          const dx = ws.cx - e.x, dy = ws.cy - e.y;
-          const len = Math.sqrt(dx*dx+dy*dy) || 1;
-          const spd = 2.5;
-          e.vx = dx/len * spd; e.vy = dy/len * spd;
-          e.damage = Math.max(5, (e.damage || 5));
-          spawnParticles(e.x, e.y, COLORS.orange, '🍳 回旋锅！', 1.5);
+    // 飞出屏幕
+    if(e.fleeing||e.friendly){
+      if(e.x<-100||e.x>W+100||e.y<-100||e.y>H+100){
+        if(e.boomerang&&e.boomerang>0){
+          e.boomerang=0; e.fleeing=false; e.friendly=false; e.color=COLORS.orange;
+          const dx=ws.cx-e.x, dy=ws.cy-e.y, l=Math.sqrt(dx*dx+dy*dy)||1;
+          e.vx=dx/l*2.5; e.vy=dy/l*2.5; e.dmg=e.dmg||6;
+          spawnParticles(e.x,e.y,COLORS.orange,'🍳 回旋锅！',1.5);
           continue;
         }
-        game.enemies.splice(i, 1);
-        continue;
+        game.enemies.splice(i,1); continue;
       }
-      // 友方弹碰撞敌方
-      if (e.friendly) {
-        for (let j = game.enemies.length - 1; j >= 0; j--) {
-          if (j === i) continue;
-          const other = game.enemies[j];
-          if (other.friendly || other.fleeing) continue;
-          const er = Math.max(e.bw || e.size*2.5, e.bh || e.size*1.8) / 2;
-          const or = Math.max(other.bw || other.size*2.5, other.bh || other.size*1.8) / 2;
-          if (dist(e.x, e.y, other.x, other.y) < er + or) {
-            other.hp -= e.damage;
-            spawnParticles(other.x, other.y, COLORS.orange, `-${Math.round(e.damage)}`, 0.8);
-            if (other.hp <= 0) {
+      // 友方打敌方
+      if(e.friendly){
+        for(let j=game.enemies.length-1;j>=0;j--){
+          if(j===i) continue;
+          const o=game.enemies[j];
+          if(o.friendly||o.fleeing)continue;
+          const er=Math.max(e.bw||e.size*2.5,e.bh||e.size*1.8)/2;
+          const or=Math.max(o.bw||o.size*2.5,o.bh||o.size*1.8)/2;
+          if(dist(e.x,e.y,o.x,o.y)<er+or){
+            o.hp-=e.damage;
+            spawnParticles(o.x,o.y,COLORS.orange,`-${Math.round(e.damage)}`,0.6);
+            if(o.hp<=0){
               game.kills++; game.killsSinceLevel++;
-              game.enemies.splice(j, 1);
               addKillRewards();
+              game.enemies.splice(j,1);
             }
           }
         }
@@ -736,159 +574,120 @@ function tick(dt) {
       continue;
     }
 
-    // comment 停驻在工位边缘，每隔 2 秒放一个小弹
-    if (e.type === 'comment') {
-      const margin = Math.max(e.bw, e.bh) / 2 + 4;
-      const inEdge = e.x > ws.x - margin && e.x < ws.x + ws.w + margin &&
-                     e.y > ws.y - margin && e.y < ws.y + ws.h + margin;
-      const inside = e.x > ws.x && e.x < ws.x + ws.w && e.y > ws.y && e.y < ws.y + ws.h;
-      if (inside) {
-        // 推回到边缘
-        const cx = ws.cx, cy = ws.cy;
-        const dx = e.x - cx, dy = e.y - cy;
-        if (Math.abs(dx) > Math.abs(dy)) {
-          e.x = dx > 0 ? ws.x + ws.w + margin : ws.x - margin;
-        } else {
-          e.y = dy > 0 ? ws.y + ws.h + margin : ws.y - margin;
-        }
-        e.vx = 0; e.vy = 0;
-        e.stationary = true;
+    // comment 停驻放小弹
+    if(e.type==='comment'){
+      const m=Math.max(e.bw,e.bh)/2+4;
+      const nearEdge = e.x>ws.x-m && e.x<ws.x+ws.w+m && e.y>ws.y-m && e.y<ws.y+ws.h+m;
+      const inside = e.x>ws.x&&e.x<ws.x+ws.w&&e.y>ws.y&&e.y<ws.y+ws.h;
+      if(inside){
+        const dx=ws.cx-e.x, dy=ws.cy-e.y;
+        if(Math.abs(dx)>Math.abs(dy)) e.x = dx>0?ws.x+ws.w+m:ws.x-m;
+        else e.y = dy>0?ws.y+ws.h+m:ws.y-m;
+        e.vx=0;e.vy=0;e.stationary=true;
       }
-      if (e.stationary) {
-        e.shootTimer = (e.shootTimer || 0) + dt;
-        if (e.shootTimer >= 2) {
-          e.shootTimer = 0;
-          const dx = ws.cx - e.x, dy = ws.cy - e.y;
-          const len = Math.sqrt(dx*dx+dy*dy) || 1;
-          game.bullets.push({
-            x: e.x, y: e.y,
-            vx: dx/len*4, vy: dy/len*4,
-            damage: 4, char: '•', friendly: false, enemyBullet: true,
-            life: 0, color: COLORS.yellow, size: 1, trail: [], pierceLeft: 0,
+      if(e.stationary){
+        e.shootTimer=(e.shootTimer||0)+dt;
+        if(e.shootTimer>=2){ e.shootTimer=0;
+          const dx=ws.cx-e.x, dy=ws.cy-e.y, l=Math.sqrt(dx*dx+dy*dy)||1;
+          game.bullets.push({x:e.x,y:e.y, vx:dx/l*4,vy:dy/l*4,
+            damage:4, char:'•', friendly:false, enemyBullet:true, life:0,
+            color:COLORS.yellow, size:1, trail:[], pierceLeft:0,
           });
         }
       }
     }
 
-    // approval 贴边持续扣精力
-    if (e.type === 'approval') {
-      const margin = Math.max(e.bw, e.bh) / 2 + 4;
-      const nearEdge = e.x > ws.x - margin && e.x < ws.x + ws.w + margin &&
-                       e.y > ws.y - margin && e.y < ws.y + ws.h + margin;
-      if (nearEdge) {
-        if (!e.stationary) {
-          e.vx = 0; e.vy = 0; e.stationary = true;
-        }
-        p.energy = Math.max(0, p.energy - 2 * dt * (game.stats.approvalDrainMult || 1));
+    // approval 贴边扣体力
+    if(e.type==='approval'){
+      const m=Math.max(e.bw,e.bh)/2+4;
+      const near=e.x>ws.x-m&&e.x<ws.x+ws.w+m&&e.y>ws.y-m&&e.y<ws.y+ws.h+m;
+      if(near){
+        if(!e.stationary){e.vx=0;e.vy=0;e.stationary=true;}
+        p.energy=Math.max(0,p.energy-e.drain*game.stats.approvalDrainMult*dt);
       }
     }
 
-    // 敌方敌人进入工位判定击中（comment/approval 停驻不算击中）
-    const isStationary = e.stationary && (e.type === 'comment' || e.type === 'approval');
-    if (!isStationary && e.x > ws.x && e.x < ws.x + ws.w && e.y > ws.y && e.y < ws.y + ws.h) {
-      let dmg = e.damage;
-      if (game.bossPatrol.active) dmg *= 2;
-      if (game.kpiEvent && game.kpiEvent.active) dmg *= 2;
-      if (e.type === 'im') dmg *= game.stats.imDamageMult;
-      if ((game.activeItemEffects.headphone > 0 || game.stats.headphoneBonus) && e.x < W/2) dmg *= 0.7;
-      if (p.shield) {
-        p.shield = false;
-        dmg = 0;
-        spawnParticles(p.x, p.y, COLORS.blue, '🛡️ 抵消', 1);
-      }
-      if (p.invulnTimer > 0) dmg = 0;
-
-      if (dmg > 0) {
-        const maxSan = PLAYER.maxPressure + p.maxPressureBonus;
-        if (e.stun > 0) {
-          p.stunTimer = e.stun;
-          p.pressure = Math.min(maxSan, p.pressure + dmg * 2);
-        } else {
-          p.pressure = Math.min(maxSan, p.pressure + dmg);
+    // 击中玩家
+    const isStationary = e.stationary;
+    if(!isStationary && e.x>ws.x && e.x<ws.x+ws.w && e.y>ws.y && e.y<ws.y+ws.h){
+      let dmg=e.dmg;
+      if(game.bossPatrol.active) dmg*=2;
+      if(game.kpiEvent.active) dmg*=2;
+      if(e.type==='im') dmg*=game.stats.imDamageMult;
+      if(game.stats.leftDamageMult<1 && e.x<W/2) dmg*=game.stats.leftDamageMult;
+      if(p.shield){ p.shield=false; dmg=0; spawnParticles(p.x,p.y,COLORS.blue,'🛡️',1); }
+      if(p.invulnTimer>0) dmg=0;
+      if(dmg>0){
+        const maxP=PLAYER.maxPressure+p.maxPressureBonus;
+        if(e.stun>0){ p.stunTimer=e.stun; p.pressure=Math.min(maxP,p.pressure+dmg*2); }
+        else p.pressure=Math.min(maxP,p.pressure+dmg);
+        p.hitFlash=0.3;
+        spawnParticles(p.x,p.y,COLORS.red,`+${Math.round(dmg)}压力`,0.8);
+        // 充能：压力上涨计入深呼吸
+        addSkillCharge(3, dmg);
+        addSkillCharge(4, e.dmg*0.3); // 挨打也涨毕业进度（甩锅充能）
+        // 被动反击
+        if(game.stats.passiveCounter && Math.random()<0.25){
+          e.friendly=true; e.color=COLORS.orange; e.damage=dmg; e.vx=-e.vx; e.vy=-e.vy;
         }
-        p.hitFlash = 0.3;
-        spawnParticles(p.x, p.y, COLORS.red, `+${Math.round(dmg)}压力`, 0.8);
       }
-      game.enemies.splice(i, 1);
-      game.combo = 0;
-
-      if (p.pressure >= maxSan) {
-        if (!trySeverance()) { endGame(false, '精神崩溃'); return; }
+      game.enemies.splice(i,1); game.combo=0;
+      if(p.pressure>=maxP){
+        if(!trySeverance()){ endGame(false,'精神崩溃'); return; }
       }
     }
   }
 
   // 子弹更新
-  for (let i = game.bullets.length - 1; i >= 0; i--) {
-    const b = game.bullets[i];
-    const px = b.x, py = b.y;
-    b.x += b.vx * 60 * dt;
-    b.y += b.vy * 60 * dt;
-    b.life += dt;
-    // 拖尾粒子
-    b.trail.push({ x: b.x, y: b.y, a: 1 });
-    if (b.trail.length > (b.isEnter ? 10 : 5)) b.trail.shift();
-    if (b.life > 3 || b.x < -50 || b.x > W+50 || b.y < -50 || b.y > H+50) {
-      game.bullets.splice(i, 1);
-      continue;
-    }
+  for(let i=game.bullets.length-1;i>=0;i--){
+    const b=game.bullets[i];
+    b.x+=b.vx*60*dt; b.y+=b.vy*60*dt; b.life+=dt;
+    b.trail.push({x:b.x,y:b.y}); if(b.trail.length>(b.isEnter?10:5))b.trail.shift();
+    if(b.life>3||b.x<-50||b.x>W+50||b.y<-50||b.y>H+50){game.bullets.splice(i,1);continue;}
 
-    // 敌方子弹：打中玩家
-    if (b.enemyBullet) {
-      if (dist(b.x, b.y, ws.cx, ws.cy) < Math.max(ws.w, ws.h) / 2 - 10) {
-        const maxSan = PLAYER.maxPressure + p.maxPressureBonus;
-        if (p.invulnTimer <= 0 && !p.shield) {
-          let dmg = b.damage;
-          if (game.bossPatrol.active) dmg *= 2;
-          if (game.kpiEvent && game.kpiEvent.active) dmg *= 2;
-          if (game.activeItemEffects.headphone > 0 && b.x < W/2) dmg *= 0.5;
-          p.pressure = Math.min(maxSan, p.pressure + dmg);
-          p.hitFlash = 0.3;
-          spawnParticles(b.x, b.y, COLORS.red, `+${dmg}压力`, 0.6);
-          game.bullets.splice(i, 1);
-          if (p.pressure >= maxSan) {
-            if (!trySeverance()) { endGame(false, '精神崩溃'); return; }
-          }
-        } else if (p.shield) {
-          p.shield = false;
-          spawnParticles(p.x, p.y, COLORS.blue, '🛡️ 抵消', 1);
-          game.bullets.splice(i, 1);
+    if(b.enemyBullet){
+      if(dist(b.x,b.y,ws.cx,ws.cy)<Math.max(ws.w,ws.h)/2-10){
+        if(p.invulnTimer<=0 && !p.shield){
+          let dmg=b.damage;
+          if(game.bossPatrol.active)dmg*=2;
+          if(game.kpiEvent.active)dmg*=2;
+          if(game.stats.leftDamageMult<1 && b.x<W/2) dmg*=game.stats.leftDamageMult;
+          dmg*=game.stats.commentBulletMult;
+          const maxP=PLAYER.maxPressure+p.maxPressureBonus;
+          p.pressure=Math.min(maxP,p.pressure+dmg);
+          p.hitFlash=0.3;
+          spawnParticles(b.x,b.y,COLORS.red,`+${dmg}压力`,0.6);
+          addSkillCharge(3,dmg);
+          game.bullets.splice(i,1);
+          if(p.pressure>=maxP){ if(!trySeverance()){endGame(false,'精神崩溃');return;} }
+        } else if(p.shield){
+          p.shield=false; spawnParticles(p.x,p.y,COLORS.blue,'🛡️',1); game.bullets.splice(i,1);
         }
       }
       continue;
     }
 
-    if (game.activeItemEffects.blameLock > 0) continue;
-    let hit = false;
-    for (let j = game.enemies.length - 1; j >= 0; j--) {
-      const e = game.enemies[j];
-      if (e.friendly || e.fleeing) continue;
-      const er = Math.max(e.bw || e.size*2.5, e.bh || e.size*1.8) / 2;
-      if (dist(b.x, b.y, e.x, e.y) < er + 8) {
-        e.hp -= b.damage;
-        spawnParticles(e.x, e.y, COLORS.white, `-${Math.round(b.damage)}`, 0.5);
-        if (e.hp <= 0) {
-          for (let k = 0; k < 6; k++) {
-            game.particles.push({
-              x: e.x, y: e.y, color: e.color, text: '',
-              vx: rand(-3,3), vy: rand(-3,3),
-              life: 0.5, maxLife: 0.5, isSpark: true, size: rand(2,4),
-            });
-          }
+    let hit=false;
+    for(let j=game.enemies.length-1;j>=0;j--){
+      const e=game.enemies[j];
+      if(e.friendly||e.fleeing)continue;
+      const er=Math.max(e.bw||e.size*2.5,e.bh||e.size*1.8)/2;
+      if(dist(b.x,b.y,e.x,e.y)<er+8){
+        e.hp-=b.damage;
+        spawnParticles(e.x,e.y,COLORS.white,`-${Math.round(b.damage)}`,0.5);
+        if(e.hp<=0){
+          for(let k=0;k<6;k++) game.particles.push({x:e.x,y:e.y,color:e.color,text:'',
+            vx:rand(-3,3),vy:rand(-3,3),life:0.5,maxLife:0.5,isSpark:true,size:rand(2,4)});
         }
-        if (b.isEnter && b.pierceLeft > 0) {
-          b.pierceLeft -= 1;
-          hit = true;
-        } else {
-          game.bullets.splice(i, 1);
-          hit = true;
-        }
-        if (e.hp <= 0) {
-          game.kills++;
-          game.killsSinceLevel++;
-          spawnParticles(e.x, e.y, e.color, '✓已读', 0.8);
+        if(b.isEnter&&b.pierceLeft>0){b.pierceLeft--;hit=true;}
+        else{game.bullets.splice(i,1);hit=true;}
+        if(e.hp<=0){
+          game.kills++; game.killsSinceLevel++;
           addKillRewards();
-          game.enemies.splice(j, 1);
+          spawnParticles(e.x,e.y,e.color,'✓已读',0.8);
+          // 技能充能
+          addSkillCharge(0,1); addSkillCharge(1,1);
+          game.enemies.splice(j,1);
         }
         break;
       }
@@ -896,822 +695,504 @@ function tick(dt) {
   }
 
   // 粒子
-  for (let i = game.particles.length - 1; i >= 0; i--) {
-    const pt = game.particles[i];
-    pt.y += pt.vy;
-    pt.life -= dt;
-    if (pt.life <= 0) game.particles.splice(i, 1);
+  for(let i=game.particles.length-1;i>=0;i--){
+    const pt=game.particles[i];
+    pt.y += pt.vy!==undefined?pt.vy:-1.5;
+    if(pt.isSpark){ pt.x+=pt.vx||0; pt.y+=pt.vy||0; }
+    pt.life-=dt;
+    if(pt.life<=0) game.particles.splice(i,1);
   }
 
   // 升级触发
-  if (game.killsSinceLevel >= getKillsForLevel(game.level)) {
-    game.killsSinceLevel = 0;
-    triggerLevelUp();
+  if(game.killsSinceLevel>=getKillsForLevel(game.level)){
+    game.killsSinceLevel=0;
+    triggerLevelUp(false);
   }
 }
 
-// ============================================================
-// === 输入处理 ===
-// ============================================================
-
-function getAtkInterval() {
-  let mult = game.stats.atkMult;
-  if (game.activeItemEffects.coffee > 0) mult *= 2;
-  const gm = game.gameMinute / 60;
-  if (game.stats.muscleMemory && gm >= 17) mult *= 1.5;
-  if (game.player.grad < 20) mult *= 1.2; // 优秀员工 buff（毕业进度低=产出好）
-  // 压力高时打字出错率高，攻速下降
-  const p = game.player.pressure;
-  const maxPressure = PLAYER.maxPressure + game.player.maxPressureBonus;
-  if (p >= maxPressure * 0.7 && !game.stats.stableMind) mult *= 0;   // 崩溃不能打
-  else if (p >= maxPressure * 0.7 && game.stats.stableMind) mult *= 0.7;
-  else if (p >= maxPressure * 0.5) mult *= 0.8;  // 压力大攻速降
-  // 体力攻速连续梯度
-  const maxEnergy = PLAYER.maxEnergy + game.player.maxEnergyBonus;
-  const energyRatio = maxEnergy > 0 ? game.player.energy / maxEnergy : 1;
-  let energyMult;
-  if (energyRatio >= 0.8) energyMult = 1;
-  else if (energyRatio <= 0.3) energyMult = 0.5;
-  else energyMult = 0.5 + 0.5 * (energyRatio - 0.3) / 0.5;
-  mult *= energyMult;
-  return 1.0 / (PLAYER.baseAtkSpeed * mult);
+function addKillRewards(){
+  const p=game.player,s=game.stats;
+  if(s.energyOnKill) p.energy=Math.min(PLAYER.maxEnergy+p.maxEnergyBonus, p.energy+s.energyOnKill);
+  if(s.pressureOnKill) p.pressure=Math.max(0,p.pressure-s.pressureOnKill);
 }
 
-function onKeyDown(e) {
-  const key = e.key;
-  const now = performance.now() / 1000;
+function trySeverance(){
+  const p=game.player;
+  // 离职缓冲是金色词条效果？不，v0.0.4 改为金词条"情绪稳定器"等，移除道具版
+  return false;
+}
 
-  // 系统键
-  if (key === 'Escape') {
+function endGame(won,reason){
+  game.won=won;
+  game.gameOverReason=reason||(won?'下班成功':'精神崩溃');
+  game.endTime=TIME();
+  game.state=State.GAME_OVER;
+}
+function startGame(){
+  game=newGame(); game.state=State.PLAYING; game.startTime=TIME();
+  const ws=workspaceRect(); game.player.x=ws.cx; game.player.y=ws.cy;
+}
+
+// ============================================================
+// === 输入 ===
+// ============================================================
+function onKeyDown(e){
+  const key=e.key; const now=TIME();
+  if(key==='Escape'){
     e.preventDefault();
-    if (game.state === State.PLAYING) game.state = State.PAUSED;
-    else if (game.state === State.PAUSED) game.state = State.PLAYING;
-    else if (game.state === State.LEVEL_UP) { game.levelUps = []; game.state = State.PLAYING; }
+    if(game.state===State.PLAYING) game.state=State.PAUSED;
+    else if(game.state===State.PAUSED) game.state=State.PLAYING;
+    else if(game.state===State.LEVEL_UP){game.levelUps=[];game.state=State.PLAYING;}
     return;
   }
-
-  // 升级选卡
-  if (game.state === State.LEVEL_UP) {
-    const n = parseInt(key);
-    if (n >= 1 && n <= game.levelUps.length) {
-      pickLevelCard(n - 1);
-    }
+  if(game.state===State.LEVEL_UP){
+    const n=parseInt(key);
+    if(n>=1&&n<=game.levelUps.length) pickLevelCard(n-1);
     return;
   }
+  if(game.state!==State.PLAYING) return;
 
-  if (game.state !== State.PLAYING) return;
+  if(key==='Tab'||key===' '||key==='Backspace'||key==='Enter') e.preventDefault();
 
-  // 阻止默认行为
-  if (key === 'Tab' || key === ' ' || key === 'Backspace' || key === 'Enter') e.preventDefault();
+  // 技能 1-5
+  if(key>='1'&&key<='5'){ useSkill(parseInt(key)-1); return; }
 
-  // 道具键
-  if (key >= '1' && key <= '5') {
-    useItem(parseInt(key) - 1);
-    return;
-  }
+  // 攻击键
+  let fireChar=null, fireOpts={};
+  if(/^[a-zA-Z]$/.test(key)){ fireChar=key.toUpperCase(); }
+  else if(key===' '){ fireChar='␣'; fireOpts.isSpace=true; }
+  else if(key==='Enter'){ fireChar='⏎'; fireOpts.isEnter=true; }
 
-  // 攻击键判断
-  let fireChar = null, fireOpts = {};
-  if (/^[a-zA-Z]$/.test(key)) { fireChar = key.toUpperCase(); }
-  else if (key === ' ') { fireChar = '␣'; fireOpts.isSpace = true; }
-  else if (key === 'Enter') { fireChar = '⏎'; fireOpts.isEnter = true; }
-
-  if (fireChar) {
-    if (game.player.stunTimer > 0) return;
-    if (game.player.slackTimer > 0) return;
-    if (game.activeItemEffects.blameLock > 0) return;
-    let canFire = true;
-    const maxPressure = PLAYER.maxPressure + game.player.maxPressureBonus;
-    const energyZero = game.player.energy <= 0;
-    if (energyZero) {
-      if (game.stats.burnMidnight) {
-        game.player.pressure = Math.min(maxPressure, game.player.pressure + 1);
-        if (game.player.pressure >= maxPressure) {
-          if (!trySeverance()) { endGame(false, '精神崩溃'); return; }
-        }
-      } else {
-        canFire = false;
-      }
+  if(fireChar){
+    if(game.player.stunTimer>0) return;
+    if(game.skillActive[2]>0) return; // 摸鱼期间不能打
+    let canFire=true;
+    const energyZero=game.player.energy<=0;
+    if(energyZero){
+      if(game.stats.burnMidnight){ game.player.pressure=Math.min(PLAYER.maxPressure+game.player.maxPressureBonus, game.player.pressure+1);
+        if(game.player.pressure>=PLAYER.maxPressure+game.player.maxPressureBonus){ if(!trySeverance()){endGame(false,'精神崩溃');return;} }
+      } else if(!game.stats.autoClicker) canFire=false;
     }
-    // 压力高到崩溃不能打
-    const pressureCrit = game.player.pressure >= maxPressure * 0.7 && !game.stats.stableMind;
-    if (pressureCrit) canFire = false;
+    const maxP=PLAYER.maxPressure+game.player.maxPressureBonus;
+    const pressureCrit = game.player.pressure>=maxP*0.7 && !game.stats.stableMind;
+    if(pressureCrit) canFire=false;
 
-    if (canFire && now - game.lastAtkTime >= getAtkInterval()) {
-      fireBullet(fireChar, fireOpts);
-      game.lastAtkTime = now;
-    }
-  }
-}
+    const coffee=game.skillActive[0]>0;
+    let atkInterval = 1.0/((PLAYER.baseAtkSpeed+game.stats.atkSpeedBonus));
+    // 体力梯度
+    const maxE=PLAYER.maxEnergy+game.player.maxEnergyBonus;
+    const eRatio=maxE>0?game.player.energy/maxE:1;
+    let eMult = eRatio>=0.8?1: eRatio<=0.3?0.5: 0.5+0.5*(eRatio-0.3)/0.5;
+    atkInterval /= eMult;
+    if(game.skillActive[0]>0||game.skillActive[1]>0) atkInterval/=2; // 咖啡/Ctrl+V 攻速翻倍
+    const gm=game.gameMinute/60;
+    if(game.stats.muscleMemory && gm>=17) atkInterval/=1.5;
 
-function onMouseMove(e) {
-  mouseX = e.clientX; mouseY = e.clientY;
-}
-
-function onMouseClick(e) {
-  const mx = e.clientX, my = e.clientY;
-  if (game.state === State.TITLE) {
-    if (pointInRect(mx, my, btnStartRect())) {
-      startGame();
-    }
-  } else if (game.state === State.PAUSED) {
-    if (pointInRect(mx, my, btnResumeRect())) game.state = State.PLAYING;
-    else if (pointInRect(mx, my, btnQuitRect())) { game = newGame(); }
-  } else if (game.state === State.GAME_OVER) {
-    if (pointInRect(mx, my, btnRestartRect())) { startGame(); }
-    else if (pointInRect(mx, my, btnTitleRect())) { game = newGame(); }
-    else if (pointInRect(mx, my, btnShareRect())) { exportShareCard(); }
-  } else if (game.state === State.LEVEL_UP) {
-    // 点击卡片
-    const cards = levelCardRects();
-    for (let i = 0; i < cards.length; i++) {
-      if (pointInRect(mx, my, cards[i])) { pickLevelCard(i); return; }
+    if(canFire && now-game.player.lastAtk>=atkInterval){
+      fireBullet(fireChar,fireOpts);
+      // 充能：体力消耗、按键数（已在 fireBullet 中消耗体力）
+      addSkillCharge(0,1); addSkillCharge(1,1);
+      addSkillCharge(2,PLAYER.energyCostPerKey);
+      // 毕业进度在 typing 时下降已在 tick 处理
     }
   }
 }
-
-function startGame() {
-  game = newGame();
-  game.state = State.PLAYING;
-  game.startTime = performance.now() / 1000;
-  const ws = workspaceRect();
-  game.player.x = ws.cx;
-  game.player.y = ws.cy;
-}
-
-window.addEventListener('keydown', onKeyDown);
-window.addEventListener('mousemove', onMouseMove);
-window.addEventListener('click', onMouseClick);
+window.addEventListener('keydown',onKeyDown);
+window.addEventListener('mousemove',e=>{mouseX=e.clientX;mouseY=e.clientY;});
 
 // ============================================================
-// === 渲染层 ===
+// === 鼠标点击 ===
 // ============================================================
-
-function resize() {
-  const dpr = window.devicePixelRatio || 1;
-  const w = window.innerWidth, h = window.innerHeight;
-  canvas.width = w * dpr;
-  canvas.height = h * dpr;
-  canvas.style.width = w + 'px';
-  canvas.style.height = h + 'px';
-  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-  W = w; H = h;
-  if (game) {
-    const ws = workspaceRect();
-    game.player.x = ws.cx;
-    game.player.y = ws.cy;
+function pointInRect(px,py,r){return px>=r.x&&px<=r.x+r.w&&py>=r.y&&py<=r.y+r.h;}
+function btnStartRect(){const w=240,h=56;return{x:W/2-w/2,y:H/2+60,w,h};}
+function btnResumeRect(){const w=200,h=48;return{x:W/2-w/2,y:H/2,w,h};}
+function btnQuitRect(){const w=200,h=48;return{x:W/2-w/2,y:H/2+70,w,h};}
+function btnRestartRect(){const w=200,h=48;return{x:W/2-w/2-220,y:H/2+80,w,h};}
+function btnTitleRect(){const w=200,h=48;return{x:W/2-w/2+220,y:H/2+80,w,h};}
+function btnShareRect(){const w=200,h=48;return{x:W/2-w/2,y:H/2+140,w,h};}
+function levelCardRects(){
+  const cw=180,ch=220,gap=20, totalW=5*cw+4*gap, sx=(W-totalW)/2, y=H/2-ch/2;
+  return game.levelUps.map((_,i)=>({x:sx+i*(cw+gap),y,w:cw,h:ch}));
+}
+function onMouseClick(e){
+  const mx=e.clientX,my=e.clientY;
+  if(game.state===State.TITLE){ if(pointInRect(mx,my,btnStartRect())) startGame(); }
+  else if(game.state===State.PAUSED){
+    if(pointInRect(mx,my,btnResumeRect())) game.state=State.PLAYING;
+    else if(pointInRect(mx,my,btnQuitRect())) game=newGame();
+  }
+  else if(game.state===State.GAME_OVER){
+    if(pointInRect(mx,my,btnRestartRect())) startGame();
+    else if(pointInRect(mx,my,btnTitleRect())) game=newGame();
+    else if(pointInRect(mx,my,btnShareRect())) exportShareCard();
+  }
+  else if(game.state===State.LEVEL_UP){
+    const cards=levelCardRects();
+    for(let i=0;i<cards.length;i++) if(pointInRect(mx,my,cards[i])){pickLevelCard(i);return;}
   }
 }
-window.addEventListener('resize', resize);
-resize();
+window.addEventListener('click',onMouseClick);
 
-// UI 按钮矩形
-function btnStartRect() { const w=240, h=56; return { x: W/2-w/2, y: H/2+60, w, h }; }
-function btnResumeRect() { const w=200, h=48; return { x: W/2-w/2, y: H/2, w, h }; }
-function btnQuitRect() { const w=200, h=48; return { x: W/2-w/2, y: H/2+70, w, h }; }
-function btnRestartRect() { const w=200, h=48; return { x: W/2-w/2-220, y: H/2+80, w, h }; }
-function btnTitleRect() { const w=200, h=48; return { x: W/2-w/2+220, y: H/2+80, w, h }; }
-function btnShareRect() { const w=200, h=48; return { x: W/2-w/2, y: H/2+140, w, h }; }
-
-function pointInRect(px, py, r) { return px >= r.x && px <= r.x+r.w && py >= r.y && py <= r.y+r.h; }
-
-function drawButton(rect, text, hover, color) {
-  ctx.fillStyle = hover ? COLORS.feishuBlue : (color || COLORS.border);
-  ctx.beginPath();
-  ctx.roundRect(rect.x, rect.y, rect.w, rect.h, 8);
-  ctx.fill();
-  ctx.fillStyle = COLORS.white;
-  ctx.font = 'bold 20px -apple-system, "PingFang SC", sans-serif';
-  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-  ctx.fillText(text, rect.x + rect.w/2, rect.y + rect.h/2);
+// ============================================================
+// === 渲染 ===
+// ============================================================
+function resize(){
+  const dpr=window.devicePixelRatio||1;
+  const w=window.innerWidth,h=window.innerHeight;
+  canvas.width=w*dpr; canvas.height=h*dpr;
+  canvas.style.width=w+'px'; canvas.style.height=h+'px';
+  ctx.setTransform(dpr,0,0,dpr,0,0);
+  W=w;H=h;
+  if(game){ const ws=workspaceRect(); game.player.x=ws.cx; game.player.y=ws.cy; }
 }
+window.addEventListener('resize',resize); resize();
 
-function drawBackground() {
-  ctx.fillStyle = COLORS.bg;
-  ctx.fillRect(0, 0, W, H);
-  // 微弱网格
-  ctx.strokeStyle = 'rgba(48,54,61,0.3)';
-  ctx.lineWidth = 1;
-  const grid = 40;
-  for (let x = 0; x < W; x += grid) { ctx.beginPath(); ctx.moveTo(x,0); ctx.lineTo(x,H); ctx.stroke(); }
-  for (let y = 0; y < H; y += grid) { ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(W,y); ctx.stroke(); }
+function drawButton(rect,text,hover,color){
+  ctx.fillStyle=hover?COLORS.feishuBlue:(color||COLORS.border);
+  ctx.beginPath(); ctx.roundRect(rect.x,rect.y,rect.w,rect.h,8); ctx.fill();
+  ctx.fillStyle=COLORS.white; ctx.font='bold 20px -apple-system,"PingFang SC",sans-serif';
+  ctx.textAlign='center'; ctx.textBaseline='middle';
+  ctx.fillText(text,rect.x+rect.w/2,rect.y+rect.h/2);
 }
-
-function drawWorkspace() {
-  const ws = workspaceRect();
-  // 工位区域
-  ctx.fillStyle = 'rgba(22,27,34,0.8)';
-  ctx.fillRect(ws.x, ws.y, ws.w, ws.h);
-  ctx.strokeStyle = COLORS.border;
-  ctx.lineWidth = 2;
-  ctx.strokeRect(ws.x, ws.y, ws.w, ws.h);
-
-  // 办公桌视觉暗示
-  ctx.fillStyle = 'rgba(51,112,255,0.05)';
-  ctx.fillRect(ws.x + ws.w*0.15, ws.y + ws.h*0.15, ws.w*0.7, ws.h*0.7);
+function drawBackground(){
+  ctx.fillStyle=COLORS.bg; ctx.fillRect(0,0,W,H);
+  ctx.strokeStyle='rgba(48,54,61,0.3)'; ctx.lineWidth=1;
+  const g=40;
+  for(let x=0;x<W;x+=g){ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,H);ctx.stroke();}
+  for(let y=0;y<H;y+=g){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(W,y);ctx.stroke();}
 }
-
-function drawPlayer() {
-  const p = game.player;
-  const ws = workspaceRect();
-  // 角色位置根据状态
-  let cx = ws.cx, cy = ws.cy;
-  if (p.pose === 'tea') { cy = ws.cy + ws.h*0.2; }
-
-  // 受击闪红
-  if (p.hitFlash > 0) {
-    ctx.fillStyle = `rgba(224,108,117,${p.hitFlash})`;
-    ctx.fillRect(0, 0, W, H);
-  }
-
-  // 护盾
-  if (p.shield) {
-    ctx.strokeStyle = COLORS.blue;
-    ctx.lineWidth = 3;
-    ctx.beginPath();
-    ctx.arc(cx, cy, ws.w*0.35, 0, Math.PI*2);
-    ctx.stroke();
-  }
-
-  // 摸鱼半透明
-  ctx.globalAlpha = p.slackTimer > 0 ? 0.5 : 1;
-
-  // 角色 emoji
-  let face = '😊';
-  const maxP = PLAYER.maxPressure + p.maxPressureBonus;
-  if (p.pressure >= maxP * 0.7) face = '😵';
-  else if (p.pressure >= maxP * 0.4) face = '😰';
-  if (p.pose === 'tea') face = '🐟';
-  if (p.stunTimer > 0) face = '😴';
-  ctx.font = '32px sans-serif';
-  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-  ctx.fillText(face, cx, cy);
-
-  // 键盘指示
-  if (p.pose === 'typing') {
-    ctx.fillStyle = COLORS.border;
-    ctx.fillRect(cx - 20, cy + 22, 40, 6);
-  }
-
-  ctx.globalAlpha = 1;
+function drawWorkspace(){
+  const ws=workspaceRect();
+  ctx.fillStyle='rgba(22,27,34,0.8)'; ctx.fillRect(ws.x,ws.y,ws.w,ws.h);
+  ctx.strokeStyle=COLORS.border; ctx.lineWidth=2; ctx.strokeRect(ws.x,ws.y,ws.w,ws.h);
+  ctx.fillStyle='rgba(51,112,255,0.05)'; ctx.fillRect(ws.x+ws.w*0.15,ws.y+ws.h*0.15,ws.w*0.7,ws.h*0.7);
 }
-
-function drawEnemies() {
-  for (const e of game.enemies) {
-    const bw = e.bw || e.size * 2.5;
-    const bh = e.bh || e.size * 1.8;
-    if (e.friendly) {
-      // 友方穿透弹：橙色高亮气泡
-      ctx.fillStyle = 'rgba(209,154,102,0.15)';
-      ctx.strokeStyle = COLORS.orange;
-    } else {
-      ctx.fillStyle = e.color;
-      ctx.strokeStyle = COLORS.white;
+function drawPlayer(){
+  const p=game.player, ws=workspaceRect();
+  let cx=ws.cx, cy=ws.cy;
+  if(p.pose==='tea'){cy=ws.cy+ws.h*0.2;}
+  if(p.hitFlash>0){ ctx.fillStyle=`rgba(224,108,117,${p.hitFlash})`; ctx.fillRect(0,0,W,H); }
+  if(p.shield){ ctx.strokeStyle=COLORS.blue; ctx.lineWidth=3; ctx.beginPath(); ctx.arc(cx,cy,ws.w*0.35,0,Math.PI*2); ctx.stroke(); }
+  ctx.globalAlpha = p.invulnTimer>0?0.5:1;
+  let face='😊';
+  const maxP=PLAYER.maxPressure+p.maxPressureBonus;
+  if(p.pressure>=maxP*0.7) face='😵';
+  else if(p.pressure>=maxP*0.4) face='😰';
+  if(p.pose==='tea') face='🐟';
+  if(p.stunTimer>0) face='😴';
+  ctx.font='32px sans-serif'; ctx.textAlign='center'; ctx.textBaseline='middle';
+  ctx.fillText(face,cx,cy);
+  ctx.fillStyle=COLORS.border; ctx.fillRect(cx-20,cy+22,40,6);
+  ctx.globalAlpha=1;
+}
+function drawEnemies(){
+  for(const e of game.enemies){
+    const bw=e.bw||e.size*2.5, bh=e.bh||e.size*1.8;
+    if(e.friendly) ctx.fillStyle='rgba(209,154,102,0.15)', ctx.strokeStyle=COLORS.orange;
+    else ctx.fillStyle=e.color, ctx.strokeStyle=COLORS.white;
+    ctx.lineWidth=2;
+    ctx.beginPath(); ctx.roundRect(e.x-bw/2,e.y-bh/2,bw,bh,8); ctx.fill(); ctx.stroke();
+    const av=bh*0.55;
+    ctx.fillStyle=e.friendly?COLORS.orange:'rgba(255,255,255,0.25)';
+    ctx.beginPath(); ctx.roundRect(e.x-bw/2+4,e.y-av/2,av,av,4); ctx.fill();
+    if(e.label){
+      ctx.font=`${Math.min(av,14)}px sans-serif`; ctx.textAlign='center'; ctx.textBaseline='middle';
+      ctx.fillStyle=COLORS.white; ctx.fillText(e.label,e.x-bw/2+4+av/2,e.y);
     }
-    ctx.lineWidth = 2;
-    // 圆角矩形气泡
-    ctx.beginPath();
-    ctx.roundRect(e.x - bw/2, e.y - bh/2, bw, bh, 8);
-    ctx.fill();
-    ctx.stroke();
-    // 左侧头像色块
-    const avatarSize = bh * 0.55;
-    ctx.fillStyle = e.friendly ? COLORS.orange : 'rgba(255,255,255,0.25)';
-    ctx.beginPath();
-    ctx.roundRect(e.x - bw/2 + 4, e.y - avatarSize/2, avatarSize, avatarSize, 4);
-    ctx.fill();
-    if (e.label) {
-      ctx.font = `${Math.min(avatarSize, 14)}px sans-serif`;
-      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-      ctx.fillStyle = COLORS.white;
-      ctx.fillText(e.label, e.x - bw/2 + 4 + avatarSize/2, e.y);
+    if(e.text && !e.friendly){
+      ctx.fillStyle='rgba(255,255,255,0.92)'; ctx.font='12px -apple-system,"PingFang SC",sans-serif';
+      ctx.textAlign='left'; ctx.textBaseline='middle';
+      ctx.fillText(e.text, e.x-bw/2+4+av+4, e.y, bw-av-12);
+    } else if(e.friendly){
+      ctx.fillStyle=COLORS.orange; ctx.font='11px sans-serif'; ctx.textAlign='center';
+      ctx.fillText('🍳 甩',e.x,e.y);
     }
-    // 文字内容
-    if (e.text && !e.friendly) {
-      ctx.fillStyle = 'rgba(255,255,255,0.92)';
-      ctx.font = '12px -apple-system, "PingFang SC", sans-serif';
-      ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
-      ctx.fillText(e.text, e.x - bw/2 + 4 + avatarSize + 4, e.y, bw - avatarSize - 12);
-    } else if (e.friendly) {
-      ctx.fillStyle = COLORS.orange;
-      ctx.font = '11px sans-serif';
-      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-      ctx.fillText('🍳 甩', e.x, e.y);
-    }
-    // HP 条（多血敌人）
-    if (e.maxHp > 1 && !e.friendly && !e.fleeing) {
-      const barW = bw;
-      ctx.fillStyle = COLORS.border;
-      ctx.fillRect(e.x - barW/2, e.y - bh/2 - 8, barW, 3);
-      ctx.fillStyle = COLORS.green;
-      ctx.fillRect(e.x - barW/2, e.y - bh/2 - 8, barW * (e.hp/e.maxHp), 3);
-    }
-    // 进入工位高亮
-    const ws = workspaceRect();
-    if (!e.friendly && !e.fleeing && e.x > ws.x && e.x < ws.x+ws.w && e.y > ws.y && e.y < ws.y+ws.h) {
-      ctx.strokeStyle = COLORS.red;
-      ctx.lineWidth = 2;
-      ctx.beginPath();
-      ctx.roundRect(e.x - bw/2 - 3, e.y - bh/2 - 3, bw + 6, bh + 6, 10);
-      ctx.stroke();
+    if(e.maxHp>1&&!e.friendly&&!e.fleeing){
+      ctx.fillStyle=COLORS.border; ctx.fillRect(e.x-bw/2,e.y-bh/2-8,bw,3);
+      ctx.fillStyle=COLORS.green; ctx.fillRect(e.x-bw/2,e.y-bh/2-8,bw*(e.hp/e.maxHp),3);
     }
   }
 }
-
-function drawBullets() {
-  for (const b of game.bullets) {
-    // 拖尾
-    if (b.trail && b.trail.length > 1) {
-      for (let i = 0; i < b.trail.length; i++) {
-        const t = b.trail[i];
-        const a = (i / b.trail.length) * 0.4;
-        ctx.globalAlpha = a;
-        ctx.fillStyle = b.color;
-        ctx.beginPath();
-        ctx.arc(t.x, t.y, 3 * b.size * (i/b.trail.length), 0, Math.PI*2);
-        ctx.fill();
+function drawBullets(){
+  for(const b of game.bullets){
+    if(b.trail&&b.trail.length>1){
+      for(let i=0;i<b.trail.length;i++){
+        const t=b.trail[i]; const a=i/b.trail.length*0.4;
+        ctx.globalAlpha=a; ctx.fillStyle=b.color;
+        ctx.beginPath();ctx.arc(t.x,t.y,3*b.size*(i/b.trail.length),0,Math.PI*2);ctx.fill();
       }
-      ctx.globalAlpha = 1;
+      ctx.globalAlpha=1;
     }
-    ctx.fillStyle = b.color;
-    const fontSz = Math.round(16 * (b.isSpace ? 1.3 : 1.0));
-    ctx.font = `bold ${fontSz}px "JetBrains Mono", "Fira Code", "Courier New", monospace`;
-    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-    ctx.fillText(b.char, b.x, b.y);
+    ctx.fillStyle=b.color;
+    ctx.font=`bold ${Math.round(16*(b.isSpace?1.3:1))}px "JetBrains Mono","Fira Code",monospace`;
+    ctx.textAlign='center'; ctx.textBaseline='middle';
+    ctx.fillText(b.char,b.x,b.y);
   }
 }
-
-function drawParticles() {
-  for (const p of game.particles) {
-    const alpha = p.life / p.maxLife;
-    ctx.globalAlpha = alpha;
-    if (p.isSpark) {
-      p.x += p.vx; p.y += p.vy;
-      ctx.fillStyle = p.color;
-      ctx.beginPath();
-      ctx.arc(p.x, p.y, p.size * alpha, 0, Math.PI*2);
-      ctx.fill();
+function drawParticles(){
+  for(const p of game.particles){
+    const a=p.life/p.maxLife; ctx.globalAlpha=a;
+    if(p.isSpark){
+      p.x+=p.vx||0; p.y+=p.vy||0;
+      ctx.fillStyle=p.color; ctx.beginPath();ctx.arc(p.x,p.y,p.size*a,0,Math.PI*2);ctx.fill();
     } else {
-      p.y += p.vy;
-      ctx.fillStyle = p.color;
-      ctx.font = 'bold 16px "JetBrains Mono", -apple-system, "PingFang SC", sans-serif';
-      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-      ctx.fillText(p.text, p.x, p.y);
+      ctx.fillStyle=p.color; ctx.font='bold 16px "JetBrains Mono",-apple-system,sans-serif';
+      ctx.textAlign='center';ctx.textBaseline='middle';
+      ctx.fillText(p.text,p.x,p.y);
     }
-    ctx.globalAlpha = 1;
+    ctx.globalAlpha=1;
   }
 }
-
-function drawKpiEvent() {
-  if (!game.kpiEvent || !game.kpiEvent.active) return;
-  ctx.fillStyle = 'rgba(224,108,117,0.85)';
-  ctx.fillRect(0, 50, W, 40);
-  ctx.fillStyle = COLORS.white;
-  ctx.font = 'bold 20px -apple-system, "PingFang SC", sans-serif';
-  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-  ctx.fillText('📢 领导约谈中！伤害翻倍、道具禁用', W/2, 70);
-}
-
-function drawPressureEffect() {
-  if (game.state !== State.PLAYING && game.state !== State.PAUSED) return;
-  const p = game.player.pressure;
-  const maxP = PLAYER.maxPressure + game.player.maxPressureBonus;
-  if (p < maxP * 0.5) return;
-  const intensity = (p - maxP*0.5) / (maxP*0.5); // 0..1
-  // 偏色覆盖
-  ctx.fillStyle = `rgba(150,50,200,${0.04 + intensity*0.12})`;
-  ctx.fillRect(0, 0, W, H);
-  // 噪点
-  const count = Math.floor(15 + intensity * 70);
-  ctx.fillStyle = `rgba(255,255,255,${0.08 + intensity*0.18})`;
-  for (let i = 0; i < count; i++) {
-    ctx.fillRect(rand(0, W), rand(0, H), rand(1,2), rand(1,2));
-  }
-  // 边缘暗角
-  const grad = ctx.createRadialGradient(W/2, H/2, Math.min(W,H)*0.3, W/2, H/2, Math.max(W,H)*0.7);
-  grad.addColorStop(0, 'rgba(0,0,0,0)');
-  grad.addColorStop(1, `rgba(0,0,0,${0.2 + intensity*0.35})`);
-  ctx.fillStyle = grad;
-  ctx.fillRect(0, 0, W, H);
-}
-
-function drawBossPatrol() {
-  if (!game.bossPatrol.active) return;
-  // 红色边框光晕
-  ctx.fillStyle = 'rgba(224,108,117,0.1)';
-  ctx.fillRect(0, 0, W, H);
-  // 探照灯
-  const cx = W/2, cy = H/2;
-  const r = Math.max(W, H);
-  ctx.save();
-  ctx.translate(cx, cy);
-  ctx.rotate(game.bossPatrol.angle);
-  const grad = ctx.createRadialGradient(0, -r*0.4, 0, 0, -r*0.4, r*0.6);
-  grad.addColorStop(0, 'rgba(224,108,117,0.4)');
-  grad.addColorStop(1, 'rgba(224,108,117,0)');
-  ctx.fillStyle = grad;
-  ctx.beginPath();
-  ctx.moveTo(0, 0);
-  ctx.arc(0, 0, r, -Math.PI/4, Math.PI/4);
-  ctx.closePath();
-  ctx.fill();
+function drawBossPatrol(){
+  if(!game.bossPatrol.active)return;
+  ctx.fillStyle='rgba(224,108,117,0.1)'; ctx.fillRect(0,0,W,H);
+  const cx=W/2,cy=H/2;
+  ctx.save(); ctx.translate(cx,cy); ctx.rotate(game.bossPatrol.angle);
+  const r=Math.max(W,H);
+  const grd=ctx.createRadialGradient(0,-r*0.4,0,0,-r*0.4,r*0.6);
+  grd.addColorStop(0,'rgba(224,108,117,0.4)'); grd.addColorStop(1,'rgba(224,108,117,0)');
+  ctx.fillStyle=grd; ctx.beginPath();ctx.moveTo(0,0);ctx.arc(0,0,r,-Math.PI/4,Math.PI/4);ctx.closePath();ctx.fill();
   ctx.restore();
-  // 老板头像剪影
-  ctx.fillStyle = 'rgba(0,0,0,0.7)';
-  const bx = cx + Math.cos(game.bossPatrol.angle - Math.PI/2) * (Math.min(W,H)*0.45);
-  const by = cy + Math.sin(game.bossPatrol.angle - Math.PI/2) * (Math.min(W,H)*0.45);
-  ctx.beginPath();
-  ctx.arc(bx, by, 24, 0, Math.PI*2);
-  ctx.fill();
-  ctx.font = '28px sans-serif';
-  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-  ctx.fillText('👔', bx, by);
+  ctx.fillStyle='rgba(0,0,0,0.7)';
+  const bx=cx+Math.cos(game.bossPatrol.angle-Math.PI/2)*(Math.min(W,H)*0.45);
+  const by=cy+Math.sin(game.bossPatrol.angle-Math.PI/2)*(Math.min(W,H)*0.45);
+  ctx.beginPath();ctx.arc(bx,by,24,0,Math.PI*2);ctx.fill();
+  ctx.font='28px sans-serif';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText('👔',bx,by);
 }
-
-function drawHUD() {
-  const p = game.player;
-  const barW = 180, barH = 14, margin = 20, gap = 30;
-  const maxPressure = PLAYER.maxPressure + p.maxPressureBonus;
-  const maxEnergy = PLAYER.maxEnergy + p.maxEnergyBonus;
-  const maxGrad = PLAYER.maxGrad + p.maxGradBonus;
+function drawPressureEffect(){
+  if(game.state!==State.PLAYING&&game.state!==State.PAUSED)return;
+  const p=game.player.pressure, maxP=PLAYER.maxPressure+game.player.maxPressureBonus;
+  if(p<maxP*0.5) return;
+  const intensity=(p-maxP*0.5)/(maxP*0.5);
+  ctx.fillStyle=`rgba(150,50,200,${0.04+intensity*0.12})`; ctx.fillRect(0,0,W,H);
+  const n=Math.floor(15+intensity*70); ctx.fillStyle=`rgba(255,255,255,${0.08+intensity*0.18})`;
+  for(let i=0;i<n;i++) ctx.fillRect(rand(0,W),rand(0,H),rand(1,2),rand(1,2));
+  const g=ctx.createRadialGradient(W/2,H/2,Math.min(W,H)*0.3,W/2,H/2,Math.max(W,H)*0.7);
+  g.addColorStop(0,'rgba(0,0,0,0)'); g.addColorStop(1,`rgba(0,0,0,${0.2+intensity*0.35})`);
+  ctx.fillStyle=g; ctx.fillRect(0,0,W,H);
+}
+function drawKpiEvent(){
+  if(!game.kpiEvent.active) return;
+  ctx.fillStyle='rgba(224,108,117,0.85)'; ctx.fillRect(0,50,W,40);
+  ctx.fillStyle=COLORS.white; ctx.font='bold 20px -apple-system,"PingFang SC",sans-serif';
+  ctx.textAlign='center'; ctx.textBaseline='middle';
+  ctx.fillText('⚠️ 你被优化了！伤害翻倍、技能禁用',W/2,70);
+}
+function drawHUD(){
+  const p=game.player, ws=workspaceRect();
+  const maxP=PLAYER.maxPressure+p.maxPressureBonus;
+  const maxE=PLAYER.maxEnergy+p.maxEnergyBonus;
+  const maxG=PLAYER.maxGrad+p.maxGradBonus;
+  const margin=20;
 
   // 时间条
-  const timeProgress = (game.gameMinute - TIME.startHour*60) / ((TIME.endHour - TIME.startHour)*60);
-  ctx.fillStyle = COLORS.panel;
-  ctx.fillRect(margin, margin, W - margin*2, 24);
-  const timeColor = game.finalRush ? COLORS.red : lerpColor(COLORS.feishuBlue, COLORS.red, timeProgress);
-  ctx.fillStyle = timeColor;
-  ctx.fillRect(margin+2, margin+2, (W-margin*2-4) * timeProgress, 20);
-  ctx.fillStyle = COLORS.white;
-  ctx.font = 'bold 14px "JetBrains Mono", monospace';
-  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-  ctx.fillText(`${formatGameTime(game.gameMinute)}  ${Math.floor(timeProgress*100)}%`, W/2, margin + 13);
+  const tp=(game.gameMinute-TIME.startHour*60)/((TIME.endHour-TIME.startHour)*60);
+  ctx.fillStyle=COLORS.panel; ctx.fillRect(margin,margin,W-margin*2,24);
+  const tc=game.finalRush?COLORS.red:lerpColor(COLORS.feishuBlue,COLORS.red,tp);
+  ctx.fillStyle=tc; ctx.fillRect(margin+2,margin+2,(W-margin*2-4)*tp,20);
+  ctx.fillStyle=COLORS.white; ctx.font='bold 14px "JetBrains Mono",monospace';
+  ctx.textAlign='center'; ctx.textBaseline='middle';
+  ctx.fillText(`${formatGameTime(game.gameMinute)}  ${Math.floor(tp*100)}%`,W/2,margin+13);
 
-  // 资源条
-  const bars = [
-    { label: '😤 压力', val: p.pressure, max: maxPressure, color: COLORS.red, reverse: true },
-    { label: '💪 体力', val: p.energy, max: maxEnergy, color: COLORS.yellow, reverse: false },
-    { label: '🎓 毕业进度', val: p.grad, max: maxGrad, color: COLORS.purple, reverse: true },
+  // 三资源条
+  const barW=180, barH=14, gap=30;
+  const bars=[
+    {label:'😤 压力',val:p.pressure,max:maxP,color:COLORS.red,reverse:true},
+    {label:'💪 体力',val:p.energy,max:maxE,color:COLORS.yellow},
+    {label:'🎓 毕业进度',val:p.grad,max:maxG,color:COLORS.purple,reverse:true},
   ];
-  ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
-  ctx.font = '12px "JetBrains Mono", sans-serif';
-  for (let i = 0; i < bars.length; i++) {
-    const b = bars[i];
-    const by = margin + 56 + i * gap;
-    ctx.fillStyle = COLORS.white;
-    ctx.fillText(`${b.label} ${Math.round(b.val)}/${Math.round(b.max)}`, margin, by);
-    ctx.fillStyle = COLORS.border;
-    ctx.fillRect(margin, by + 8, barW, barH);
-    ctx.fillStyle = b.color;
-    ctx.fillRect(margin+2, by+10, (barW-4) * clamp(b.val/b.max, 0, 1), barH-4);
+  ctx.textAlign='left'; ctx.textBaseline='middle'; ctx.font='12px "JetBrains Mono",sans-serif';
+  for(let i=0;i<bars.length;i++){
+    const b=bars[i], by=margin+50+i*gap;
+    ctx.fillStyle=COLORS.white; ctx.fillText(`${b.label} ${Math.round(b.val)}/${Math.round(b.max)}`,margin,by);
+    ctx.fillStyle=COLORS.border; ctx.fillRect(margin,by+8,barW,barH);
+    ctx.fillStyle=b.color; ctx.fillRect(margin+2,by+10,(barW-4)*clamp(b.val/b.max,0,1),barH-4);
   }
 
-  // Combo
-  if (game.combo > 1) {
-    ctx.fillStyle = COLORS.orange;
-    ctx.font = 'bold 20px -apple-system, sans-serif';
-    ctx.textAlign = 'right';
-    ctx.fillText(`连击 x${game.combo}`, W - margin, margin + 50);
+  // 连击
+  if(game.combo>1){
+    ctx.fillStyle=COLORS.orange; ctx.font='bold 20px "JetBrains Mono",sans-serif';
+    ctx.textAlign='right'; ctx.fillText(`连击 x${game.combo}`,W-margin,margin+50);
   }
 
-  // 道具栏
-  const slotSize = 56, slotGap = 8;
-  const itemsY = H - margin - slotSize;
-  const totalW = 5 * slotSize + 4 * slotGap;
-  const itemsX = (W - totalW) / 2;
-  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-  for (let i = 0; i < 5; i++) {
-    const x = itemsX + i * (slotSize + slotGap);
-    ctx.fillStyle = COLORS.panel;
-    ctx.fillRect(x, itemsY, slotSize, slotSize);
-    ctx.strokeStyle = COLORS.border;
-    ctx.lineWidth = 2;
-    ctx.strokeRect(x, itemsY, slotSize, slotSize);
-
-    const item = game.items[i];
-    if (item) {
-      ctx.font = '28px sans-serif';
-      ctx.globalAlpha = item.cd > 0 ? 0.4 : 1;
-      ctx.fillText(ITEMS[item.id].emoji, x + slotSize/2, itemsY + slotSize/2 - 6);
-      ctx.globalAlpha = 1;
-      // CD 覆盖
-      if (item.cd > 0) {
-        ctx.fillStyle = 'rgba(0,0,0,0.6)';
-        const cdH = slotSize * (item.cd / ITEMS[item.id].cd);
-        ctx.fillRect(x, itemsY, slotSize, cdH);
-        ctx.fillStyle = COLORS.white;
-        ctx.font = 'bold 16px sans-serif';
-        ctx.fillText(Math.ceil(item.cd).toString(), x + slotSize/2, itemsY + slotSize/2);
-      }
-      // 次数
-      if (item.count > 1) {
-        ctx.fillStyle = COLORS.yellow;
-        ctx.font = 'bold 14px sans-serif';
-        ctx.textAlign = 'right';
-        ctx.fillText(item.count, x + slotSize - 4, itemsY + slotSize - 4);
-        ctx.textAlign = 'center';
-      }
+  // 技能栏
+  const slot=56,sg=8, iy=H-margin-slot, tw=5*slot+4*sg, ix=(W-tw)/2;
+  ctx.textAlign='center'; ctx.textBaseline='middle';
+  for(let i=0;i<5;i++){
+    const x=ix+i*(slot+sg);
+    ctx.fillStyle=COLORS.panel; ctx.fillRect(x,iy,slot,slot);
+    ctx.strokeStyle=canUseSkill(i)?COLORS.feishuBlue:COLORS.border; ctx.lineWidth=2; ctx.strokeRect(x,iy,slot,slot);
+    const sk=SKILLS[i];
+    ctx.globalAlpha=game.skillActive[i]>0?1: (canUseSkill(i)?1:0.5);
+    ctx.font='28px sans-serif'; ctx.fillText(sk.emoji,x+slot/2,iy+slot/2-8);
+    ctx.globalAlpha=1;
+    // 充能条
+    const need=sk.chargeNeed/game.stats.chargeSpeedMult;
+    const ch=slot*clamp(game.skillCharge[i]/need,0,1);
+    ctx.fillStyle=COLORS.feishuBlue; ctx.fillRect(x,iy+slot-ch,4,ch);
+    // 激活覆盖
+    if(game.skillActive[i]>0){
+      ctx.fillStyle='rgba(97,175,239,0.3)'; ctx.fillRect(x,iy,slot,slot);
+      ctx.fillStyle=COLORS.blue; ctx.font='bold 11px sans-serif';
+      ctx.fillText(game.skillActive[i].toFixed(1),x+slot/2,iy+slot-10);
     }
-    // 数字键提示
-    ctx.fillStyle = COLORS.border;
-    ctx.font = '12px sans-serif';
-    ctx.fillText((i+1).toString(), x + 10, itemsY + 12);
+    ctx.fillStyle=COLORS.gray; ctx.font='11px sans-serif';
+    ctx.fillText((i+1).toString(),x+10,iy+10);
   }
 
-  // 状态效果提示
-  let fx = margin, fy = margin + 56 + 4 * gap + 10;
-  ctx.textAlign = 'left'; ctx.font = '13px sans-serif';
-  if (p.slackTimer > 0) { ctx.fillStyle = COLORS.blue; ctx.fillText(`🐟 摸鱼中 ${p.slackTimer.toFixed(1)}s`, fx, fy); fy += 20; }
-  if (p.stunTimer > 0) { ctx.fillStyle = COLORS.purple; ctx.fillText(`😴 硬直 ${p.stunTimer.toFixed(1)}s`, fx, fy); fy += 20; }
-  if (game.activeItemEffects.coffee > 0) { ctx.fillStyle = COLORS.orange; ctx.fillText(`☕ 咖啡生效 ${game.activeItemEffects.coffee.toFixed(1)}s`, fx, fy); fy += 20; }
-  if (game.activeItemEffects.headphone > 0) { ctx.fillStyle = COLORS.cyan; ctx.fillText(`🎧 降噪中 ${game.activeItemEffects.headphone.toFixed(1)}s`, fx, fy); fy += 20; }
-  if (game.activeItemEffects.blameLock > 0) { ctx.fillStyle = COLORS.orange; ctx.fillText(`🍳 甩锅中 ${game.activeItemEffects.blameLock.toFixed(1)}s`, fx, fy); fy += 20; }
+  // Buff 状态文字
+  let fx=margin, fy=margin+50+3*gap+10;
+  ctx.textAlign='left'; ctx.font='12px sans-serif';
+  if(p.stunTimer>0){ctx.fillStyle=COLORS.purple;ctx.fillText(`😴 硬直 ${p.stunTimer.toFixed(1)}s`,fx,fy);fy+=18;}
+  if(game.skillActive[0]>0){ctx.fillStyle=COLORS.orange;ctx.fillText(`☕ 咖啡 ${game.skillActive[0].toFixed(1)}s`,fx,fy);fy+=18;}
+  if(game.skillActive[1]>0){ctx.fillStyle=COLORS.green;ctx.fillText(`⌨️ Ctrl+V ${game.skillActive[1].toFixed(1)}s`,fx,fy);fy+=18;}
+  if(game.skillActive[2]>0){ctx.fillStyle=COLORS.blue;ctx.fillText(`🐟 摸鱼 ${game.skillActive[2].toFixed(1)}s`,fx,fy);fy+=18;}
+  if(game.skillActive[3]>0){ctx.fillStyle=COLORS.cyan;ctx.fillText(`🫧 深呼吸 ${game.skillActive[3].toFixed(1)}s`,fx,fy);fy+=18;}
 }
 
-function drawTitleScreen() {
+const TIER_COLORS={common:COLORS.white,rare:COLORS.blue,epic:COLORS.purple,legendary:COLORS.yellow,item:COLORS.green};
+function drawTitleScreen(){
   drawBackground();
-  ctx.fillStyle = COLORS.white;
-  ctx.font = 'bold 56px -apple-system, "PingFang SC", sans-serif';
-  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-  ctx.fillText('Six to Survive', W/2, H/2 - 100);
-  ctx.font = '28px -apple-system, "PingFang SC", sans-serif';
-  ctx.fillStyle = COLORS.feishuBlue;
-  ctx.fillText('撑到六点', W/2, H/2 - 50);
-  ctx.font = '16px -apple-system, sans-serif';
-  ctx.fillStyle = COLORS.cyan;
-  ctx.fillText('飞书消息四面八方涌来，狂敲键盘清活，撑到 18:00 下班', W/2, H/2);
-  ctx.fillStyle = COLORS.border;
-  ctx.fillText('A-Z 打字攻击 ｜ 1-5 使用道具 ｜ Esc 暂停', W/2, H/2 + 30);
-
-  const btn = btnStartRect();
-  const hover = pointInRect(mouseX, mouseY, btn);
-  drawButton(btn, '开始上班', hover);
+  ctx.fillStyle=COLORS.white; ctx.font='bold 56px -apple-system,"PingFang SC",sans-serif';
+  ctx.textAlign='center'; ctx.textBaseline='middle';
+  ctx.fillText('Six to Survive',W/2,H/2-100);
+  ctx.font='28px -apple-system,"PingFang SC",sans-serif'; ctx.fillStyle=COLORS.feishuBlue;
+  ctx.fillText('撑到六点',W/2,H/2-50);
+  ctx.font='16px -apple-system,sans-serif'; ctx.fillStyle=COLORS.cyan;
+  ctx.fillText('狂敲键盘清飞书消息，撑到 18:00 下班',W/2,H/2);
+  ctx.fillStyle=COLORS.border; ctx.fillText('A-Z 打字攻击 ｜ 1-5 技能 ｜ Esc 暂停',W/2,H/2+30);
+  drawButton(btnStartRect(),'开始上班',pointInRect(mouseX,mouseY,btnStartRect()));
 }
-
-function drawPauseScreen() {
-  ctx.fillStyle = 'rgba(0,0,0,0.7)';
-  ctx.fillRect(0, 0, W, H);
-  ctx.fillStyle = COLORS.white;
-  ctx.font = 'bold 40px -apple-system, sans-serif';
-  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-  ctx.fillText('暂停', W/2, H/2 - 60);
-
-  const br = btnResumeRect(), bq = btnQuitRect();
-  drawButton(br, '继续', pointInRect(mouseX, mouseY, br));
-  drawButton(bq, '回到标题', pointInRect(mouseX, mouseY, bq), COLORS.red);
+function drawPauseScreen(){
+  ctx.fillStyle='rgba(0,0,0,0.7)'; ctx.fillRect(0,0,W,H);
+  ctx.fillStyle=COLORS.white; ctx.font='bold 40px sans-serif';
+  ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillText('暂停',W/2,H/2-60);
+  drawButton(btnResumeRect(),'继续',pointInRect(mouseX,mouseY,btnResumeRect()));
+  drawButton(btnQuitRect(),'回到标题',pointInRect(mouseX,mouseY,btnQuitRect()),COLORS.red);
 }
-
-function levelCardRects() {
-  const cardW = 180, cardH = 220, gap = 20;
-  const totalW = game.levelUps.length * cardW + (game.levelUps.length - 1) * gap;
-  const startX = (W - totalW) / 2;
-  const y = H/2 - cardH/2;
-  return game.levelUps.map((_, i) => ({
-    x: startX + i * (cardW + gap), y, w: cardW, h: cardH
-  }));
+function wrapText(text,cx,cy,maxW,lh){
+  ctx.textAlign='center'; ctx.textBaseline='top';
+  let line='',ly=cy;
+  for(const ch of text){
+    if(ctx.measureText(line+ch).width>maxW && line){
+      ctx.fillText(line,cx,ly); line=ch; ly+=lh;
+    } else line+=ch;
+  }
+  if(line) ctx.fillText(line,cx,ly);
 }
-
-const TIER_COLORS = { common: COLORS.white, rare: COLORS.blue, epic: COLORS.purple, legendary: COLORS.yellow, item: COLORS.green };
-
-function drawLevelUpScreen() {
-  ctx.fillStyle = 'rgba(0,0,0,0.75)';
-  ctx.fillRect(0, 0, W, H);
-  ctx.fillStyle = COLORS.white;
-  ctx.font = 'bold 36px -apple-system, sans-serif';
-  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-  ctx.fillText('⚡ 升级！选一张卡', W/2, H/2 - 160);
-
-  const cards = levelCardRects();
-  for (let i = 0; i < cards.length; i++) {
-    const c = cards[i];
-    const card = game.levelUps[i];
-    const hover = pointInRect(mouseX, mouseY, c);
-    const isItem = card.type === 'item';
-    const tierColor = isItem ? TIER_COLORS.item : TIER_COLORS[card.upg.tier];
-
-    ctx.fillStyle = hover ? '#1f2937' : COLORS.panel;
-    ctx.beginPath(); ctx.roundRect(c.x, c.y, c.w, c.h, 12); ctx.fill();
-    ctx.strokeStyle = tierColor; ctx.lineWidth = 3; ctx.stroke();
-
-    // 数字键
-    ctx.fillStyle = tierColor;
-    ctx.font = 'bold 24px sans-serif';
-    ctx.fillText(`[${i+1}]`, c.x + 24, c.y + 30);
-
-    if (isItem) {
-      const icfg = ITEMS[card.id];
-      ctx.font = '48px sans-serif';
-      ctx.fillText(icfg.emoji, c.x + c.w/2, c.y + 80);
-      ctx.fillStyle = COLORS.white; ctx.font = 'bold 18px sans-serif';
-      ctx.fillText(icfg.name, c.x + c.w/2, c.y + 130);
-      ctx.fillStyle = COLORS.green; ctx.font = '13px sans-serif';
-      ctx.fillText('道具', c.x + c.w/2, c.y + 152);
-      ctx.fillStyle = COLORS.cyan; ctx.font = '12px sans-serif';
-      wrapText(icfg.desc, c.x + c.w/2, c.y + 180, c.w - 20, 16);
-    } else {
-      const u = card.upg;
-      ctx.fillStyle = tierColor; ctx.font = '14px sans-serif';
-      ctx.fillText(u.tier.toUpperCase(), c.x + c.w/2, c.y + 50);
-      ctx.fillStyle = COLORS.white; ctx.font = 'bold 18px sans-serif';
-      ctx.fillText(u.name, c.x + c.w/2, c.y + 90);
-      ctx.fillStyle = COLORS.cyan; ctx.font = '13px sans-serif';
-      wrapText(u.desc, c.x + c.w/2, c.y + 130, c.w - 20, 18);
-    }
+function drawLevelUpScreen(){
+  ctx.fillStyle='rgba(0,0,0,0.75)'; ctx.fillRect(0,0,W,H);
+  ctx.fillStyle=COLORS.white; ctx.font='bold 36px sans-serif';
+  ctx.textAlign='center'; ctx.textBaseline='middle';
+  ctx.fillText('⚡ 升级！'+(game.doublePickPending?'（双选）':'选一张卡'),W/2,H/2-160);
+  const cards=levelCardRects();
+  for(let i=0;i<cards.length;i++){
+    const c=cards[i], card=game.levelUps[i];
+    const hover=pointInRect(mouseX,mouseY,c);
+    const isItem=card.type==='item';
+    const tierColor=isItem?TIER_COLORS.item:TIER_COLORS[card.upg.tier];
+    ctx.fillStyle=hover?'#1f2937':COLORS.panel;
+    ctx.beginPath();ctx.roundRect(c.x,c.y,c.w,c.h,12);ctx.fill();
+    ctx.strokeStyle=tierColor; ctx.lineWidth=3; ctx.stroke();
+    ctx.fillStyle=tierColor; ctx.font='bold 24px sans-serif';
+    ctx.fillText(`[${i+1}]`,c.x+24,c.y+30);
+    const u=card.upg;
+    ctx.fillStyle=tierColor; ctx.font='14px sans-serif';
+    ctx.fillText(u.tier.toUpperCase(),c.x+c.w/2,c.y+50);
+    ctx.fillStyle=COLORS.white; ctx.font='bold 17px sans-serif';
+    ctx.fillText(u.name,c.x+c.w/2,c.y+85);
+    const lv=getCurrentLevel(u.id)+1;
+    ctx.fillStyle=COLORS.cyan; ctx.font='12px sans-serif';
+    ctx.fillText(`Lv.${lv}/${u.maxLv}`,c.x+c.w/2,c.y+108);
+    ctx.fillStyle=COLORS.cyan; ctx.font='12px sans-serif';
+    wrapText(u.desc,c.x+c.w/2,c.y+130,c.w-20,16);
   }
 }
-
-function wrapText(text, cx, cy, maxW, lh) {
-  ctx.textAlign = 'center'; ctx.textBaseline = 'top';
-  const words = text.split('');
-  let line = '', ly = cy;
-  for (const ch of words) {
-    const test = line + ch;
-    if (ctx.measureText(test).width > maxW && line.length > 0) {
-      ctx.fillText(line, cx, ly);
-      line = ch; ly += lh;
-    } else {
-      line = test;
-    }
-  }
-  if (line) ctx.fillText(line, cx, ly);
-}
-
-function drawGameOverScreen() {
-  ctx.fillStyle = game.won ? 'rgba(0,40,20,0.9)' : 'rgba(40,0,0,0.9)';
-  ctx.fillRect(0, 0, W, H);
-  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-
-  if (game.won) {
-    ctx.fillStyle = COLORS.green;
-    ctx.font = 'bold 48px -apple-system, sans-serif';
-    ctx.fillText('✓ 下班成功！', W/2, H/2 - 160);
+function drawGameOverScreen(){
+  ctx.fillStyle=game.won?'rgba(0,40,20,0.9)':'rgba(40,0,0,0.9)'; ctx.fillRect(0,0,W,H);
+  ctx.textAlign='center'; ctx.textBaseline='middle';
+  if(game.won){
+    ctx.fillStyle=COLORS.green; ctx.font='bold 48px sans-serif'; ctx.fillText('✓ 下班成功！',W/2,H/2-160);
   } else {
-    ctx.fillStyle = COLORS.red;
-    ctx.font = 'bold 44px -apple-system, sans-serif';
-    ctx.fillText(
-      game.gameOverReason === '精神崩溃'
-        ? '😵 精神崩溃' : '☠️ 加班猝死',
-      W/2, H/2 - 160
-    );
-    ctx.font = '18px sans-serif';
-    ctx.fillStyle = COLORS.white;
-    ctx.fillText(
-      game.gameOverReason === '精神崩溃'
-        ? '你在公司群里发了句"我不干了"然后清醒了'
-        : '你的工位亮了一整夜',
-      W/2, H/2 - 120
-    );
+    ctx.fillStyle=COLORS.red; ctx.font='bold 44px sans-serif';
+    ctx.fillText(game.gameOverReason==='精神崩溃'?'😵 精神崩溃':'☠️ 加班猝死',W/2,H/2-160);
+    ctx.font='18px sans-serif'; ctx.fillStyle=COLORS.white;
+    ctx.fillText(game.gameOverReason==='精神崩溃'?'你在公司群里发了句"我不干了"':'你的工位亮了一整夜',W/2,H/2-120);
   }
-
-  // 统计
-  const endT = game.endTime || (performance.now()/1000);
-  const dur = (endT - game.startTime);
-  const mins = Math.floor(dur / 60), secs = Math.floor(dur % 60);
-  ctx.fillStyle = COLORS.white;
-  ctx.font = '18px -apple-system, sans-serif';
-  const lines = [
-    `存活到 ${formatGameTime(Math.min(game.gameMinute, TIME.endHour*60))}`,
-    `本局时长 ${mins}:${String(secs).padStart(2,'0')}`,
+  const endT=game.endTime||TIME(); const dur=endT-game.startTime;
+  const mi=Math.floor(dur/60),sc=Math.floor(dur%60);
+  ctx.fillStyle=COLORS.white; ctx.font='18px "JetBrains Mono",sans-serif';
+  const lines=[
+    `存活到 ${formatGameTime(Math.min(game.gameMinute,TIME.endHour*60))}`,
+    `本局时长 ${mi}:${String(sc).padStart(2,'0')}`,
     `击杀消息 ${game.kills} 条`,
-    `道具使用 ${game.itemUses} 次`,
+    `技能使用 ${game.itemUses} 次`,
     `获得词条 ${game.level} 个`,
     `最高连击 ${game.maxCombo}`,
   ];
-  lines.forEach((l, i) => ctx.fillText(l, W/2, H/2 - 60 + i*26));
-
-  if (game.won) {
-    ctx.fillStyle = COLORS.cyan; ctx.font = '14px sans-serif';
-    ctx.fillText('你发送了一条飞书消息——"我先下班了，周末不看飞书 👋"', W/2, H/2 + 110);
-  }
-
-  const br = btnRestartRect(), bt = btnTitleRect(), bs = btnShareRect();
-  drawButton(br, '再来一局', pointInRect(mouseX, mouseY, br));
-  drawButton(bt, '回到标题', pointInRect(mouseX, mouseY, bt));
-  drawButton(bs, '📸 保存战绩图', pointInRect(mouseX, mouseY, bs), COLORS.feishuBlue);
+  lines.forEach((l,i)=>ctx.fillText(l,W/2,H/2-60+i*26));
+  if(game.won){ctx.fillStyle=COLORS.cyan;ctx.font='14px sans-serif';
+    ctx.fillText('你发送了一条飞书消息——"我先下班了，周末不看飞书 👋"',W/2,H/2+110);}
+  drawButton(btnRestartRect(),'再来一局',pointInRect(mouseX,mouseY,btnRestartRect()));
+  drawButton(btnTitleRect(),'回到标题',pointInRect(mouseX,mouseY,btnTitleRect()));
+  drawButton(btnShareRect(),'📸 保存战绩图',pointInRect(mouseX,mouseX,mouseY,btnShareRect()),COLORS.feishuBlue);
 }
-
-function exportShareCard() {
-  // 1200x630 社交卡片标准尺寸
-  const W = 1200, H = 630;
-  const c = document.createElement('canvas');
-  c.width = W; c.height = H;
-  const x = c.getContext('2d');
-
-  // 背景
-  x.fillStyle = '#0d1117';
-  x.fillRect(0, 0, W, H);
-  // 顶部色带
-  const grad = x.createLinearGradient(0, 0, W, 0);
-  grad.addColorStop(0, '#3370ff');
-  grad.addColorStop(1, game.won ? '#98c379' : '#e06c75');
-  x.fillStyle = grad;
-  x.fillRect(0, 0, W, 8);
-
-  x.fillStyle = '#e6edf3';
-  x.textAlign = 'left'; x.textBaseline = 'top';
-
-  // 标题
-  x.font = 'bold 56px -apple-system, "PingFang SC", sans-serif';
-  x.fillText('Six to Survive · 撑到六点', 60, 60);
-  x.font = '28px -apple-system, "PingFang SC", sans-serif';
-  x.fillStyle = game.won ? '#98c379' : '#e06c75';
-  x.fillText(game.won ? '✓ 下班成功！' : (game.gameOverReason === '精神崩溃' ? '😵 精神崩溃' : '☠️ 加班猝死'), 60, 140);
-
-  // 分隔线
-  x.strokeStyle = '#30363d';
-  x.lineWidth = 2;
-  x.beginPath(); x.moveTo(60, 200); x.lineTo(W-60, 200); x.stroke();
-
-  // 统计数据网格
-  const endT = game.endTime || (performance.now()/1000);
-  const dur = endT - game.startTime;
-  const mins = Math.floor(dur/60), secs = Math.floor(dur%60);
-  const stats = [
-    ['存活到', formatGameTime(Math.min(game.gameMinute, TIME.endHour*60))],
-    ['本局时长', `${mins}:${String(secs).padStart(2,'0')}`],
-    ['击杀消息', `${game.kills} 条`],
-    ['道具使用', `${game.itemUses} 次`],
-    ['获得词条', `${game.level} 个`],
-    ['最高连击', `${game.maxCombo}`],
+function exportShareCard(){
+  const cw=1200,ch=630, c=document.createElement('canvas'); c.width=cw;c.height=ch;
+  const x=c.getContext('2d');
+  x.fillStyle='#0d1117'; x.fillRect(0,0,cw,ch);
+  const grd=x.createLinearGradient(0,0,cw,0);
+  grd.addColorStop(0,'#3370ff'); grd.addColorStop(1,game.won?'#98c379':'#e06c75');
+  x.fillStyle=grd; x.fillRect(0,0,cw,8);
+  x.fillStyle='#e6edf3'; x.textAlign='left';x.textBaseline='top';
+  x.font='bold 56px -apple-system,sans-serif'; x.fillText('Six to Survive · 撑到六点',60,60);
+  x.font='28px sans-serif'; x.fillStyle=game.won?'#98c379':'#e06c75';
+  x.fillText(game.won?'✓ 下班成功！':(game.gameOverReason==='精神崩溃'?'😵 精神崩溃':'☠️ 加班猝死'),60,140);
+  x.strokeStyle='#30363d';x.lineWidth=2;x.beginPath();x.moveTo(60,200);x.lineTo(cw-60,200);x.stroke();
+  const endT=game.endTime||performance.now()/1000, dur=endT-game.startTime;
+  const mi=Math.floor(dur/60),sc=Math.floor(dur%60);
+  const stats=[
+    ['存活到',formatGameTime(Math.min(game.gameMinute,TIME.endHour*60))],
+    ['本局时长',`${mi}:${String(sc).padStart(2,'0')}`],
+    ['击杀消息',`${game.kills} 条`],
+    ['技能使用',`${game.itemUses} 次`],
+    ['获得词条',`${game.level} 个`],
+    ['最高连击',`${game.maxCombo}`],
   ];
-  x.font = '20px -apple-system, "PingFang SC", sans-serif';
-  x.fillStyle = '#8b949e';
-  const colW = (W - 120) / 3;
-  stats.forEach((s, i) => {
-    const col = i % 3, row = Math.floor(i / 3);
-    const sx = 60 + col * colW, sy = 230 + row * 120;
-    x.fillStyle = '#8b949e';
-    x.font = '20px -apple-system, "PingFang SC", sans-serif';
-    x.fillText(s[0], sx, sy);
-    x.fillStyle = '#e6edf3';
-    x.font = 'bold 42px -apple-system, "PingFang SC", sans-serif';
-    x.fillText(s[1], sx, sy + 32);
+  x.font='20px sans-serif'; x.fillStyle='#8b949e';
+  const colW=(cw-120)/3;
+  stats.forEach((s,i)=>{const col=i%3,row=Math.floor(i/3);const sx=60+col*colW,sy=230+row*120;
+    x.fillText(s[0],sx,sy); x.fillStyle='#e6edf3'; x.font='bold 42px "JetBrains Mono",sans-serif';
+    x.fillText(s[1],sx,sy+32); x.fillStyle='#8b949e'; x.font='20px sans-serif';
   });
-
-  // 底部彩蛋
-  x.font = '18px -apple-system, "PingFang SC", sans-serif';
-  x.fillStyle = '#56b6c2';
-  if (game.won) {
-    x.fillText('我先下班了，周末不看飞书 👋', 60, H - 60);
-  } else {
-    x.fillText('你的工位亮了一整夜。', 60, H - 60);
-  }
-  x.fillStyle = '#30363d';
-  x.textAlign = 'right';
-  x.fillText('Six to Survive  v0.0.1', W - 60, H - 60);
-
-  // 触发下载
-  c.toBlob(blob => {
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `six-to-survive-${game.won ? 'win' : 'lose'}-${Date.now()}.png`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-    spawnParticles(W/2, H/2 - 40, COLORS.green, '📸 战绩图已保存', 2);
-  }, 'image/png');
+  x.font='18px sans-serif';x.fillStyle='#56b6c2';
+  if(game.won) x.fillText('我先下班了，周末不看飞书 👋',60,ch-60);
+  else x.fillText('你的工位亮了一整夜。',60,ch-60);
+  x.textAlign='right';x.fillStyle='#30363d';x.font='16px sans-serif';
+  x.fillText('Six to Survive  v0.0.4',cw-60,ch-60);
+  c.toBlob(blob=>{const url=URL.createObjectURL(blob);const a=document.createElement('a');
+    a.href=url; a.download=`six-to-survive-${game.won?'win':'lose'}-${Date.now()}.png`;
+    document.body.appendChild(a);a.click();document.body.removeChild(a);URL.revokeObjectURL(url);
+    spawnParticles(W/2,H/2-40,COLORS.green,'📸 战绩图已保存',2);
+  },'image/png');
 }
-
-function lerpColor(c1, c2, t) {
-  const p = (c) => [parseInt(c.slice(1,3),16), parseInt(c.slice(3,5),16), parseInt(c.slice(5,7),16)];
-  const [r1,g1,b1] = p(c1), [r2,g2,b2] = p(c2);
-  const r = Math.round(lerp(r1,r2,t)), g = Math.round(lerp(g1,g2,t)), b = Math.round(lerp(b1,b2,t));
-  return `rgb(${r},${g},${b})`;
+function lerpColor(c1,c2,t){
+  const p=c=>[parseInt(c.slice(1,3),16),parseInt(c.slice(3,5),16),parseInt(c.slice(5,7),16)];
+  const[r1,g1,b1]=p(c1),[r2,g2,b2]=p(c2);
+  return `rgb(${Math.round(lerp(r1,r2,t))},${Math.round(lerp(g1,g2,t))},${Math.round(lerp(b1,b2,t))})`;
 }
-
-// ============================================================
-// === 主循环 ===
-// ============================================================
-
-function loop(ts) {
-  if (!lastTime) lastTime = ts;
-  let dt = (ts - lastTime) / 1000;
-  lastTime = ts;
-  dt = Math.min(dt, 0.05); // 防止大跳帧
-
+function loop(ts){
+  if(!lastTime)lastTime=ts; let dt=(ts-lastTime)/1000; lastTime=ts; dt=Math.min(dt,0.05);
   tick(dt);
-
-  // 渲染
   drawBackground();
-  if (game.state === State.TITLE) {
-    drawTitleScreen();
-  } else {
-    drawWorkspace();
-    drawPlayer();
-    drawBullets();
-    drawEnemies();
-    drawParticles();
-    drawBossPatrol();
-    drawHUD();
-    drawKpiEvent();
-    drawPressureEffect();
-    if (game.state === State.PAUSED) drawPauseScreen();
-    if (game.state === State.LEVEL_UP) drawLevelUpScreen();
-    if (game.state === State.GAME_OVER) drawGameOverScreen();
+  if(game.state===State.TITLE) drawTitleScreen();
+  else{
+    drawWorkspace(); drawPlayer(); drawBullets(); drawEnemies(); drawParticles();
+    drawBossPatrol(); drawHUD(); drawKpiEvent(); drawPressureEffect();
+    if(game.state===State.PAUSED) drawPauseScreen();
+    if(game.state===State.LEVEL_UP) drawLevelUpScreen();
+    if(game.state===State.GAME_OVER) drawGameOverScreen();
   }
-
   requestAnimationFrame(loop);
 }
 requestAnimationFrame(loop);
