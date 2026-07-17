@@ -52,9 +52,9 @@ const SKILLS = [
     desc:'每键同时打3个敌人' },
   { id:'milktea',   emoji:'🧋', name:'摸鱼',    chargeBy:'energy',  chargeNeed:300, duration:2.5,
     desc:'冻结敌人 无敌 -20压力' },
-  { id:'breath',    emoji:'🫧', name:'深呼吸', chargeBy:'pressure',chargeNeed:500, duration:5,
+  { id:'breath',    emoji:'🫧', name:'深呼吸', chargeBy:'pressure',chargeNeed:125, duration:5,
     desc:'-4/s 压力' },
-  { id:'blame',     emoji:'🍳', name:'甩锅',    chargeBy:'grad',    chargeNeed:40, duration:0,
+  { id:'blame',     emoji:'🍳', name:'甩锅',    chargeBy:'grad',    chargeNeed:160, duration:0,
     desc:'全屏反弹 毕业清零' },
 ];
 
@@ -1116,8 +1116,8 @@ function drawHelpScreen(){
     ['☕ 咖啡','250 键充能','4 秒攻速翻倍、不耗体力'],
     ['⌨️ Ctrl+V','400 键充能','3 秒每键打最近 3 个敌人'],
     ['🧋 摸鱼','消耗 300 体力','2.5 秒冻结敌人、无敌、-20 压力'],
-    ['🫧 深呼吸','压力涨 250','5 秒内每秒 -4 压力'],
-    ['🍳 甩锅','毕业涨 80','全屏弹幕反弹、清零毕业进度'],
+    ['🫧 深呼吸','压力涨 125','5 秒内每秒 -4 压力'],
+    ['🍳 甩锅','毕业涨 160','全屏弹幕反弹、清零毕业进度'],
   ];
   ctx.font='13px sans-serif';
   for(const [name,charge,desc] of skillDesc){
