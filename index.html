@@ -31,7 +31,7 @@ const PLAYER = {
   maxPressure: 100, maxEnergy: 100, maxGrad: 100,
   startGrad: 30,
   baseDamage: 1, baseAtkSpeed: 30,  // 30/s 上限，基本等于不限
-  energyCostPerKey: 1.2, energyRegenPerSec: 1.0,
+  energyCostPerKey: 0.6, energyRegenPerSec: 1.5,
   pressureIdleFall: 0.8,
   pressureTypingRise: 1.0,
   gradRisePerSec: 5,
@@ -177,7 +177,7 @@ function newGame() {
     time:0, gameMinute: TIME.startHour*60,
     player:{ x:0,y:0, pressure:0, energy:PLAYER.maxEnergy, grad:PLAYER.startGrad,
       maxPressureBonus:0, maxEnergyBonus:0, maxGradBonus:0,
-      stunTimer:0, invulnTimer:0, hitFlash:0, lastAtk:0, lastFire:0, lastKeyTime:0,
+      stunTimer:0, invulnTimer:0, hitFlash:0, hitShake:0, lastAtk:0, lastFire:0, lastKeyTime:0,
       typing:false, idleTimer:0, pose:'typing', poseTimer:0,
     },
     stats: emptyStats(),
@@ -454,6 +454,7 @@ function tick(dt){
   p.stunTimer=Math.max(0,p.stunTimer-dt);
   p.hitFlash=Math.max(0,p.hitFlash-dt);
   p.comboTimer=Math.max(0,p.comboTimer-dt);
+  p.hitShake=Math.max(0,p.hitShake-dt);
   if(p.comboTimer<=0) game.combo=0;
 
   // 咖啡成瘾自动触发
@@ -616,26 +617,25 @@ function tick(dt){
     // 击中玩家
     const isStationary = e.stationary;
     if(!isStationary && e.x>ws.x && e.x<ws.x+ws.w && e.y>ws.y && e.y<ws.y+ws.h){
+      if(p.invulnTimer<=0){
       let dmg=e.dmg;
       if(game.bossPatrol.active) dmg*=2;
       if(game.kpiEvent.active) dmg*=2;
       if(e.type==='im') dmg*=game.stats.imDamageMult;
       if(game.stats.leftDamageMult<1 && e.x<W/2) dmg*=game.stats.leftDamageMult;
       if(p.shield){ p.shield=false; dmg=0; spawnParticles(p.x,p.y,COLORS.blue,'🛡️',1); }
-      if(p.invulnTimer>0) dmg=0;
       if(dmg>0){
         const maxP=PLAYER.maxPressure+p.maxPressureBonus;
         if(e.stun>0){ p.stunTimer=e.stun; p.pressure=Math.min(maxP,p.pressure+dmg*2); }
         else p.pressure=Math.min(maxP,p.pressure+dmg);
-        p.hitFlash=0.3;
+        p.hitFlash=0.4; p.hitShake=0.3; p.invulnTimer=0.5;
         spawnParticles(p.x,p.y,COLORS.red,`+${Math.round(dmg)}压力`,0.8);
-        // 充能：压力上涨计入深呼吸
         addSkillCharge(3, dmg);
-        addSkillCharge(4, e.dmg*0.3); // 挨打也涨毕业进度（甩锅充能）
-        // 被动反击
+        addSkillCharge(4, e.dmg*0.3);
         if(game.stats.passiveCounter && Math.random()<0.25){
           e.friendly=true; e.color=COLORS.orange; e.damage=dmg; e.vx=-e.vx; e.vy=-e.vy;
         }
+      }
       }
       game.enemies.splice(i,1); game.combo=0;
       if(p.pressure>=maxP){
@@ -1266,6 +1266,9 @@ function lerpColor(c1,c2,t){
 function loop(ts){
   if(!lastTime)lastTime=ts; let dt=(ts-lastTime)/1000; lastTime=ts; dt=Math.min(dt,0.05);
   tick(dt);
+  const shake = game.player.hitShake>0 ? rand(-6,6)*game.player.hitShake : 0;
+  ctx.save();
+  ctx.translate(shake, shake);
   drawBackground();
   if(game.state===State.TITLE) drawTitleScreen();
   else{
@@ -1276,6 +1279,7 @@ function loop(ts){
     if(game.state===State.LEVEL_UP) drawLevelUpScreen();
     if(game.state===State.GAME_OVER) drawGameOverScreen();
   }
+  ctx.restore();
   requestAnimationFrame(loop);
 }
 requestAnimationFrame(loop);
