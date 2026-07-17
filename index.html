@@ -616,26 +616,26 @@ function tick(dt){
 
     // 击中玩家
     const isStationary = e.stationary;
+    const maxP = PLAYER.maxPressure+p.maxPressureBonus;
     if(!isStationary && e.x>ws.x && e.x<ws.x+ws.w && e.y>ws.y && e.y<ws.y+ws.h){
       if(p.invulnTimer<=0){
-      let dmg=e.dmg;
-      if(game.bossPatrol.active) dmg*=2;
-      if(game.kpiEvent.active) dmg*=2;
-      if(e.type==='im') dmg*=game.stats.imDamageMult;
-      if(game.stats.leftDamageMult<1 && e.x<W/2) dmg*=game.stats.leftDamageMult;
-      if(p.shield){ p.shield=false; dmg=0; spawnParticles(p.x,p.y,COLORS.blue,'🛡️',1); }
-      if(dmg>0){
-        const maxP=PLAYER.maxPressure+p.maxPressureBonus;
-        if(e.stun>0){ p.stunTimer=e.stun; p.pressure=Math.min(maxP,p.pressure+dmg*2); }
-        else p.pressure=Math.min(maxP,p.pressure+dmg);
-        p.hitFlash=0.4; p.hitShake=0.3; p.invulnTimer=0.5;
-        spawnParticles(p.x,p.y,COLORS.red,`+${Math.round(dmg)}压力`,0.8);
-        addSkillCharge(3, dmg);
-        addSkillCharge(4, e.dmg*0.3);
-        if(game.stats.passiveCounter && Math.random()<0.25){
-          e.friendly=true; e.color=COLORS.orange; e.damage=dmg; e.vx=-e.vx; e.vy=-e.vy;
+        let dmg=e.dmg;
+        if(game.bossPatrol.active) dmg*=2;
+        if(game.kpiEvent.active) dmg*=2;
+        if(e.type==='im') dmg*=game.stats.imDamageMult;
+        if(game.stats.leftDamageMult<1 && e.x<W/2) dmg*=game.stats.leftDamageMult;
+        if(p.shield){ p.shield=false; dmg=0; spawnParticles(p.x,p.y,COLORS.blue,'🛡️',1); }
+        if(dmg>0){
+          if(e.stun>0){ p.stunTimer=e.stun; p.pressure=Math.min(maxP,p.pressure+dmg*2); }
+          else p.pressure=Math.min(maxP,p.pressure+dmg);
+          p.hitFlash=0.4; p.hitShake=0.3; p.invulnTimer=0.5;
+          spawnParticles(p.x,p.y,COLORS.red,`+${Math.round(dmg)}压力`,0.8);
+          addSkillCharge(3, dmg);
+          addSkillCharge(4, e.dmg*0.3);
+          if(game.stats.passiveCounter && Math.random()<0.25){
+            e.friendly=true; e.color=COLORS.orange; e.damage=dmg; e.vx=-e.vx; e.vy=-e.vy;
+          }
         }
-      }
       }
       game.enemies.splice(i,1); game.combo=0;
       if(p.pressure>=maxP){
