@@ -30,7 +30,7 @@ const COLORS = {
 const PLAYER = {
   maxPressure: 100, maxEnergy: 100, maxGrad: 100,
   startGrad: 30,
-  baseDamage: 1, baseAtkSpeed: 7,
+  baseDamage: 1, baseAtkSpeed: 30,  // 30/s 上限，基本等于不限
   energyCostPerKey: 1.2, energyRegenPerSec: 1.0,
   pressureIdleFall: 0.8,
   pressureTypingRise: 1.0,
@@ -59,17 +59,17 @@ const SKILLS = [
 ];
 
 const ENEMIES = {
-  im:       { name:'飞书IM',   hp:3, speed:2.4, dmg:6,  size:12, color:COLORS.feishuBlue, label:'',
+  im:       { name:'飞书IM',   hp:3, speed:2.4, dmg:3,  size:12, color:COLORS.feishuBlue, label:'',
     texts:['在吗？','看一下消息','麻烦回复下','这个很急','今天能给吗','有空吗','在？','急！','请确认','反馈一下','同步下进度','过一下方案','帮忙看下','review 一下','？？','收到请回复','对下方案','这个谁负责','你看下群','拉个会','催一下','对齐一下','跟进下','在忙吗','能来一下吗','文档看了吗','帮忙加个班','今晚上线','今天能好吗','谁接这个需求','发一下周报','同步下进展','老板问了','客户在催','明天汇报','出个差','加个需求','改个样式','过下文案','做个 PPT','写个文档','开个单','发个版本','回个邮件','登一下 VPN','看下报警','群里 at 你了','@ 所有人','帮忙顶一下','这轮谁 oncall','回归测一下','帮忙找下 bug','看下日志','这个 case 看了吗','对齐 OKR','下周要汇报','复盘写了吗','需求评审了吗','排期给一下','方案过一下','明天开会','今晚要发版','帮忙补个文档','看下邮件','帮忙合一下 MR','帮忙 review PR','上环境了','回滚一下','线上出事了','快回群里','等你回复','方便接电话吗','语音一下','同步会议纪要','看下周报','季度总结写了吗','提测了吗','过下验收标准','今天能提测吗','这是 P0','帮忙做个表','对下数据','盘一下库存','看下监控','大盘红了','告警 100+','故障群拉了','客户投诉了','老板找你','HR 找你','财务找你','行政找你','周会开了吗','月报写了吗','年会报名了吗','团建你去吗','体检做了吗','发票贴了吗','报销交了吗','审批到你了','权限开了吗'] },
   meeting:  { name:'会议邀请', hp:12,speed:0.9, dmg:0,  size:26, color:COLORS.purple,     label:'📅', stun:1.0,
     texts:['周会同步','需求评审','紧急拉群','项目对齐会','问题复盘','季度规划','1:1 沟通','进度 standup','头脑风暴','kickoff','需求澄清','技术评审','方案评审','排期对齐','站会','晨会','晚会','周报同步','月度复盘','OKR 对齐','预评审','会后会','对齐会','同步会','需求宣讲','架构评审','事故复盘','复盘会','立项会','验收会','总结会','庆功会'] },
-  colleague:{ name:'同事@你',  hp:4, speed:1.6, dmg:7,  size:16, color:COLORS.green,      label:'❓',
+  colleague:{ name:'同事@你',  hp:4, speed:1.6, dmg:4,  size:16, color:COLORS.green,      label:'❓',
     texts:['帮我看下这个','这个咋弄啊','你有这个文档吗','帮我 review 下','代码跑不起来','这个接口对吗','你那边能复现不','请教个问题','帮忙改下','线上出 bug 了','你改了什么','谁动了我代码','这个需求谁接','我本地是好的','帮我查下日志','这个 case 看了吗','帮我合下 MR','环境挂了','回归一下','谁部署的','为什么回滚','有报错截图吗','复现步骤是','你这什么分支','帮我拉下分支','怎么本地又挂了','接口超时了','配置没改吧','密钥失效了','帮我开下权限'] },
-  comment:  { name:'文档@评论',hp:7, speed:1.2, dmg:9,  size:18, color:COLORS.yellow,     label:'@',
+  comment:  { name:'文档@评论',hp:7, speed:1.2, dmg:5,  size:18, color:COLORS.yellow,     label:'@',
     texts:['这里改一下','参考下竞品','样式不对','逻辑不通','再改改','没对齐设计稿','明天上线','评论下','这体验不好','按钮不明显','文案改一下','设计稿更新了','逻辑有问题','要重新排期','今晚能好吗','用户反馈的','这个太复杂','能不能简单点','交互不对','字号太小','颜色不好看','间距调一下','弹窗太丑','文案不通顺','逻辑有漏洞','体验不顺滑','再出个方案','再给个版本','重新想想','这个先不做','需求变了','再评审下'] },
   approval: { name:'审批待办', hp:4, speed:0.8, dmg:0,  size:18, color:'#8b949e', label:'✓', drain:2,
     texts:['报销审批','合同审批','权限申请','用印申请','付款审批','休假审批','出差申请','采购审批','预算审批','资产申请','账号申请','门禁申请','离职交接','入职审批','转正申请','调岗申请','晋升答辩','调薪申请','加班审批','补卡申请','请假审批','外出申请','用车申请','招待申请','会议申请','培训申请','招聘审批','背调授权','设备申请','网络开通'] },
-  okr:      { name:'OKR对齐',  hp:20,speed:0.7, dmg:16, size:32, color:COLORS.red,        label:'🎯',
+  okr:      { name:'OKR对齐',  hp:20,speed:0.7, dmg:10, size:32, color:COLORS.red,        label:'🎯',
     texts:['季末对齐','OKR Review','目标复盘','绩效评估','季度总结','360评估','年终汇报','晋升答辩','述职报告','绩效沟通','战略对齐','部门 review','半年评估','目标拆解','KR 对齐','绩效校准','人才盘点','组织调整','战略解码','目标对齐会','季度规划','年度规划','战略复盘','能力评估','述职评审','绩效反馈','调薪评估','奖金评定','职级晋升','发展计划'] },
 };
 
@@ -155,7 +155,7 @@ const ITEM_CARD_WEIGHT = 0; // v0.0.4 无道具卡，全是词条
 const canvas = document.getElementById('game');
 const ctx = canvas.getContext('2d');
 let W=0, H=0, mouseX=0, mouseY=0;
-const State = { TITLE:'title', PLAYING:'playing', PAUSED:'paused', LEVEL_UP:'levelup', GAME_OVER:'gameover' };
+const State = { TITLE:'title', PLAYING:'playing', PAUSED:'paused', PAUSED_HELP:'paused_help', LEVEL_UP:'levelup', GAME_OVER:'gameover' };
 let game;
 
 function emptyStats() {
@@ -752,6 +752,7 @@ function onKeyDown(e){
     e.preventDefault();
     if(game.state===State.PLAYING) game.state=State.PAUSED;
     else if(game.state===State.PAUSED) game.state=State.PLAYING;
+    else if(game.state===State.PAUSED_HELP) game.state=State.PAUSED;
     else if(game.state===State.LEVEL_UP){game.levelUps=[];game.state=State.PLAYING;}
     return;
   }
@@ -799,8 +800,7 @@ function onKeyDown(e){
     if(game.stats.muscleMemory && gm>=17) atkInterval/=1.5;
 
     game.player.lastKeyTime = now;
-    const lastFire = game.player.lastFire || 0;
-    if(canFire && now-lastFire>=atkInterval){
+    if(canFire){
       game.player.lastFire = now;
       fireBullet(fireChar,fireOpts);
       addSkillCharge(0,1); addSkillCharge(1,1);
@@ -818,6 +818,8 @@ function pointInRect(px,py,r){return px>=r.x&&px<=r.x+r.w&&py>=r.y&&py<=r.y+r.h;
 function btnStartRect(){const w=240,h=56;return{x:W/2-w/2,y:H/2+60,w,h};}
 function btnResumeRect(){const w=200,h=48;return{x:W/2-w/2,y:H/2,w,h};}
 function btnQuitRect(){const w=200,h=48;return{x:W/2-w/2,y:H/2+70,w,h};}
+function btnHelpRect(){const w=200,h=48;return{x:W/2-w/2,y:H/2+140,w,h};}
+function btnHelpBackRect(){const w=120,h=40;return{x:30,y:H-80,w,h};}
 function btnRestartRect(){const w=200,h=48;return{x:W/2-w/2-220,y:H/2+80,w,h};}
 function btnTitleRect(){const w=200,h=48;return{x:W/2-w/2+220,y:H/2+80,w,h};}
 function btnShareRect(){const w=200,h=48;return{x:W/2-w/2,y:H/2+140,w,h};}
@@ -831,6 +833,10 @@ function onMouseClick(e){
   else if(game.state===State.PAUSED){
     if(pointInRect(mx,my,btnResumeRect())) game.state=State.PLAYING;
     else if(pointInRect(mx,my,btnQuitRect())) game=newGame();
+    else if(pointInRect(mx,my,btnHelpRect())) game.state=State.PAUSED_HELP;
+  }
+  else if(game.state===State.PAUSED_HELP){
+    if(pointInRect(mx,my,btnHelpBackRect())) game.state=State.PAUSED;
   }
   else if(game.state===State.GAME_OVER){
     if(pointInRect(mx,my,btnRestartRect())) startGame();
@@ -1077,10 +1083,75 @@ function drawTitleScreen(){
 function drawPauseScreen(){
   ctx.fillStyle='rgba(0,0,0,0.7)'; ctx.fillRect(0,0,W,H);
   ctx.fillStyle=COLORS.white; ctx.font='bold 40px sans-serif';
-  ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillText('暂停',W/2,H/2-60);
+  ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillText('暂停',W/2,H/2-90);
   drawButton(btnResumeRect(),'继续',pointInRect(mouseX,mouseY,btnResumeRect()));
   drawButton(btnQuitRect(),'回到标题',pointInRect(mouseX,mouseY,btnQuitRect()),COLORS.red);
+  drawButton(btnHelpRect(),'📖 百科全书',pointInRect(mouseX,mouseY,btnHelpRect()),COLORS.feishuBlue);
 }
+
+function drawHelpScreen(){
+  ctx.fillStyle='rgba(13,17,23,0.97)'; ctx.fillRect(0,0,W,H);
+  ctx.textAlign='left'; ctx.textBaseline='top';
+  const m=40, colW=(W-m*3)/2;
+  let y=30;
+  ctx.fillStyle=COLORS.feishuBlue; ctx.font='bold 28px sans-serif';
+  ctx.fillText('📖 百科全书',m,y);
+  ctx.fillStyle=COLORS.gray; ctx.font='13px sans-serif';
+  ctx.fillText('按 Esc 返回 ｜ 了解游戏机制、主动技能、被动词条',m,y+34);
+  y += 80;
+
+  ctx.fillStyle=COLORS.cyan; ctx.font='bold 18px sans-serif';
+  ctx.fillText('🎮 主动技能（按键 1-5）',m,y); y+=28;
+  const skillDesc=[
+    ['☕ 咖啡','250 键充能','4 秒攻速翻倍、不耗体力'],
+    ['⌨️ Ctrl+V','400 键充能','3 秒每键打最近 3 个敌人'],
+    ['🧋 摸鱼','消耗 300 体力','2.5 秒冻结敌人、无敌、-20 压力'],
+    ['🫧 深呼吸','压力涨 250','5 秒内每秒 -4 压力'],
+    ['🍳 甩锅','毕业涨 80','全屏弹幕反弹、清零毕业进度'],
+  ];
+  ctx.font='13px sans-serif';
+  for(const [name,charge,desc] of skillDesc){
+    ctx.fillStyle=COLORS.yellow; ctx.font='bold 13px sans-serif';
+    ctx.fillText(name+'  —  '+charge,m,y);
+    ctx.fillStyle=COLORS.white; ctx.font='12px sans-serif';
+    ctx.fillText(desc,m+10,y+17);
+    y+=40;
+  }
+  y+=10;
+  ctx.fillStyle=COLORS.cyan; ctx.font='bold 18px sans-serif';
+  ctx.fillText('📐 游戏机制',m,y); y+=28;
+  ctx.fillStyle=COLORS.white; ctx.font='12px sans-serif';
+  const mech=[
+    '😤 压力：被打/持续打字涨；不打/摸鱼/深呼吸降；满 100 崩溃 GG',
+    '💪 体力：按键盘消耗，自动回复；0 时攻速减半',
+    '🎓 毕业进度：不打字涨，打字降；满 100 被优化（伤害翻倍禁技能）',
+    '⚡ 升级：每 15×1.15^N 击杀升级，5 选 1 词条',
+    '⌨️ 手速=攻速：你敲多快就打多快，没有硬上限',
+    '🎯 子弹自动追踪最近的敌人',
+    '👔 14:30 老板查岗，17:30 下班准备期（敌人加倍）',
+  ];
+  for(const t of mech){ ctx.fillText(t,m,y); y+=18; }
+
+  let y2=110;
+  ctx.fillStyle=COLORS.purple; ctx.font='bold 18px sans-serif';
+  ctx.fillText('📜 被动词条（升级获得）',m*2+colW,y2); y2+=28;
+  const tiers=[
+    ['白色 Common × 10','最大 5 级',COLORS.white,['键程优化(攻速上限)、双显示器(伤害+0.5)','保温杯(体力回复+15%)、中性笔(击杀回体力)','笔记本(击杀-压力)、已读不回(IM-8%伤害)','工学椅(空闲降压+15%)、需求记录员(@小弹-20%)','异步沟通(审批-15%体力)、会议摸鱼(硬直-压力)']],
+    ['蓝色 Rare × 7','最大 3 级',COLORS.blue,['备用充电器(体力上限+10)、耳机降噪(左侧-15%)','快速充能(技能+10%)、咖啡续杯(咖啡+1秒)','多喝热水(深呼吸-2/s压力)','甩锅闭环(回旋锅-30%)','绿植(压力上限+10/秒减)']],
+    ['紫色 Epic × 8','最大 2 级',COLORS.purple,['老板附体(伤害+1)、摸鱼大师(摸鱼+0.5秒)','高级粘贴(Ctrl+V+1目标)、需求考古学(@评论-40%)','静默升级(选卡后无敌)、N+1大礼包(首次清屏)','熬夜修仙(体力0仍打 每键+1压力)','自动点击器(体力0自动打字)']],
+    ['金色 Legendary × 8','唯一',COLORS.yellow,['双选(本次升级5选2)、996肌肉记忆(17点伤害+2)','周报外挂(甩锅刷新充能)、股权承诺书(摸鱼毕业不涨)','情绪稳定器(高压不禁打)、被动反击(25%反弹)','甩锅大师(甩锅伤害+100%)、咖啡成瘾(低体力自动咖啡)']],
+  ];
+  ctx.font='12px sans-serif';
+  for(const [name,lv,c,items] of tiers){
+    ctx.fillStyle=c; ctx.font='bold 13px sans-serif';
+    ctx.fillText(name+'  —  '+lv,m*2+colW,y2); y2+=17;
+    ctx.fillStyle=COLORS.white; ctx.font='11px sans-serif';
+    for(const it of items){ ctx.fillText('· '+it,m*2+colW+8,y2); y2+=15; }
+    y2+=8;
+  }
+  drawButton(btnHelpBackRect(),'← 返回',pointInRect(mouseX,mouseY,btnHelpBackRect()));
+}
+
 function wrapText(text,cx,cy,maxW,lh){
   ctx.textAlign='center'; ctx.textBaseline='top';
   let line='',ly=cy;
@@ -1201,6 +1272,7 @@ function loop(ts){
     drawWorkspace(); drawPlayer(); drawBullets(); drawEnemies(); drawParticles();
     drawBossPatrol(); drawHUD(); drawKpiEvent(); drawPressureEffect();
     if(game.state===State.PAUSED) drawPauseScreen();
+    if(game.state===State.PAUSED_HELP) drawHelpScreen();
     if(game.state===State.LEVEL_UP) drawLevelUpScreen();
     if(game.state===State.GAME_OVER) drawGameOverScreen();
   }
