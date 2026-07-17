@@ -32,11 +32,17 @@ const PLAYER = {
   startGrad: 30,
   baseDamage: 1, baseAtkSpeed: 7,
   energyCostPerKey: 1.2, energyRegenPerSec: 1.0,
-  pressureIdleFall: 0.8,            // 不输出时降压
-  pressureTypingRise: 1.0,         // 输出时涨压
-  gradRisePerSec: 5,               // 不输出时毕业进度涨
-  gradFallPerSec: 3,               // 输出时毕业进度降
+  pressureIdleFall: 0.8,
+  pressureTypingRise: 1.0,
+  gradRisePerSec: 5,
+  gradFallPerSec: 3,
   workspaceRatio: 0.25,
+};
+
+const TIME = {
+  startHour: 9, endHour: 18,
+  gameMinutesPerRealSec: 45 / 60,
+  slackDuration: 3,
 };
 
 const SKILLS = [
@@ -171,7 +177,7 @@ function newGame() {
     time:0, gameMinute: TIME.startHour*60,
     player:{ x:0,y:0, pressure:0, energy:PLAYER.maxEnergy, grad:PLAYER.startGrad,
       maxPressureBonus:0, maxEnergyBonus:0, maxGradBonus:0,
-      stunTimer:0, invulnTimer:0, hitFlash:0, lastAtk:0,
+      stunTimer:0, invulnTimer:0, hitFlash:0, lastAtk:0, lastFire:0, lastKeyTime:0,
       typing:false, idleTimer:0, pose:'typing', poseTimer:0,
     },
     stats: emptyStats(),
@@ -187,7 +193,7 @@ function newGame() {
   };
 }
 game = newGame();
-function TIME(){ return performance.now()/1000; }
+function NOW(){ return performance.now()/1000; }
 
 // ============================================================
 // === 工具 ===
@@ -281,7 +287,7 @@ function fireBullet(char, opts={}){
   }
   p.energy -= PLAYER.energyCostPerKey;
   game.combo++; game.maxCombo=Math.max(game.maxCombo,game.combo); game.comboTimer=2.0;
-  p.pose='typing'; p.poseTimer=0; p.lastAtk=TIME();
+  p.pose='typing'; p.poseTimer=0; p.lastAtk=NOW();
   playKeySound(opts);
 }
 
@@ -416,7 +422,7 @@ let lastTime=0;
 function tick(dt){
   if(game.state!==State.PLAYING) return;
   const p=game.player, ws=workspaceRect();
-  const now=TIME();
+  const now=NOW();
 
   // 时间
   game.gameMinute += TIME.gameMinutesPerRealSec*dt;
@@ -457,7 +463,7 @@ function tick(dt){
   if(game.stats.coffeeAddictCd>0) game.stats.coffeeAddictCd-=dt;
 
   // 打字检测
-  const typing = p.lastAtk && (now-p.lastAtk<0.5);
+  const typing = p.lastKeyTime && (now-p.lastKeyTime<0.5);
   const slack = game.skillActive[2]>0;
   const coffee = game.skillActive[0]>0;
   const breath = game.skillActive[3]>0;
@@ -722,14 +728,18 @@ function trySeverance(){
   return false;
 }
 
+function spawnParticles(x,y,color,text,duration){
+  game.particles.push({x,y,color,text,life:duration,maxLife:duration,vy:-1.5});
+}
+
 function endGame(won,reason){
   game.won=won;
   game.gameOverReason=reason||(won?'下班成功':'精神崩溃');
-  game.endTime=TIME();
+  game.endTime=NOW();
   game.state=State.GAME_OVER;
 }
 function startGame(){
-  game=newGame(); game.state=State.PLAYING; game.startTime=TIME();
+  game=newGame(); game.state=State.PLAYING; game.startTime=NOW();
   const ws=workspaceRect(); game.player.x=ws.cx; game.player.y=ws.cy;
 }
 
@@ -737,7 +747,7 @@ function startGame(){
 // === 输入 ===
 // ============================================================
 function onKeyDown(e){
-  const key=e.key; const now=TIME();
+  const key=e.key; const now=NOW();
   if(key==='Escape'){
     e.preventDefault();
     if(game.state===State.PLAYING) game.state=State.PAUSED;
@@ -788,12 +798,13 @@ function onKeyDown(e){
     const gm=game.gameMinute/60;
     if(game.stats.muscleMemory && gm>=17) atkInterval/=1.5;
 
-    if(canFire && now-game.player.lastAtk>=atkInterval){
+    game.player.lastKeyTime = now;
+    const lastFire = game.player.lastFire || 0;
+    if(canFire && now-lastFire>=atkInterval){
+      game.player.lastFire = now;
       fireBullet(fireChar,fireOpts);
-      // 充能：体力消耗、按键数（已在 fireBullet 中消耗体力）
       addSkillCharge(0,1); addSkillCharge(1,1);
       addSkillCharge(2,PLAYER.energyCostPerKey);
-      // 毕业进度在 typing 时下降已在 tick 处理
     }
   }
 }
@@ -1119,7 +1130,7 @@ function drawGameOverScreen(){
     ctx.font='18px sans-serif'; ctx.fillStyle=COLORS.white;
     ctx.fillText(game.gameOverReason==='精神崩溃'?'你在公司群里发了句"我不干了"':'你的工位亮了一整夜',W/2,H/2-120);
   }
-  const endT=game.endTime||TIME(); const dur=endT-game.startTime;
+  const endT=game.endTime||NOW(); const dur=endT-game.startTime;
   const mi=Math.floor(dur/60),sc=Math.floor(dur%60);
   ctx.fillStyle=COLORS.white; ctx.font='18px "JetBrains Mono",sans-serif';
   const lines=[
@@ -1196,6 +1207,7 @@ function loop(ts){
   requestAnimationFrame(loop);
 }
 requestAnimationFrame(loop);
+
 </script>
 </body>
 </html>
