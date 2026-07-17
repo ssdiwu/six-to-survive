@@ -75,8 +75,8 @@ const ENEMIES = {
 
 const UPGRADES = [
   // Common 白 5级
-  { id:'kb',        name:'键程优化',   tier:'common', maxLv:5, desc:'攻速上限 +1/s',
-    apply:(s,lv)=>{ s.atkSpeedBonus = lv; } },
+  { id:'kb',        name:'键程优化',   tier:'common', maxLv:5, desc:'每键体力消耗 -8%',
+    apply:(s,lv)=>{ s.energyCostMult = 1 - lv*0.08; } },
   { id:'dual_mon',  name:'双显示器',   tier:'common', maxLv:5, desc:'伤害 +0.5',
     apply:(s,lv)=>{ s.damageBonus = lv*0.5; } },
   { id:'thermos',   name:'保温杯',     tier:'common', maxLv:5, desc:'体力回复 +15%',
@@ -110,8 +110,8 @@ const UPGRADES = [
     apply:(s,lv)=>{ s.coffeeBonus = lv; } },
   { id:'deep_breath',name:'多喝热水', tier:'rare', maxLv:3, desc:'深呼吸多 -2/s',
     apply:(s,lv)=>{ s.breathBonus = lv*2; } },
-  { id:'blame_loop',name:'甩锅闭环',   tier:'rare', maxLv:3, desc:'回旋锅 -30%',
-    apply:(s,lv)=>{ s.blameReturnReduce = lv*0.3; } },
+  { id:'blame_loop',name:'甩锅闭环',   tier:'rare', maxLv:3, desc:'甩锅期间 +1s 不能打字',
+    apply:(s,lv)=>{ s.blameLockExt = lv; } },
   // Epic 紫 2级
   { id:'ceo_shadow',name:'老板附体',   tier:'epic', maxLv:2, desc:'伤害 +1',
     apply:(s,lv)=>{ s.damageBonus += lv; } },
@@ -165,7 +165,7 @@ function emptyStats() {
     atkSpeedBonus:0, damageBonus:0, energyRegenMult:1, energyOnKill:0, pressureOnKill:0,
     imDamageMult:1, pressureIdleMult:1, commentBulletMult:1, approvalDrainMult:1, pressureRegenPerSec:0,
     maxEnergyBonus:0, maxPressureBonus:0, chargeSpeedMult:1, coffeeBonus:0,
-    enemyBulletSlow: 0, energyRegenMult:1,
+    enemyBulletSlow: 0, energyRegenMult:1, energyCostMult:1,
     breathBonus:0, blameReturnReduce:0, damageBonus:0, milkTeaBonus:0, pasteBonus:0,
     commentDamageMult:1, upgradeShield:0, n1Package:false, burnMidnight:false, autoClicker:false,
     muscleMemory:false, weeklyReport:false, kpiNoDrop:false, doublePick:false, stableMind:false,
@@ -288,7 +288,7 @@ function fireBullet(char, opts={}){
       size:opts.isSpace?1.3:1.0, trail:[],
     });
   }
-  p.energy -= PLAYER.energyCostPerKey;
+  p.energy -= PLAYER.energyCostPerKey * game.stats.energyCostMult;
   game.combo++; game.maxCombo=Math.max(game.maxCombo,game.combo); game.comboTimer=2.0;
   p.pose='typing'; p.poseTimer=0; p.lastAtk=NOW();
   playKeySound(opts);
@@ -331,7 +331,6 @@ function useSkill(idx){
           e.vx=-e.vx; e.vy=-e.vy;
         } else {
           e.vx=-e.vx; e.vy=-e.vy; e.fleeing=true;
-          e.boomerang = Math.max(0, 1 - game.stats.blameReturnReduce);
         }
       }
       p.pressure = Math.max(0, p.pressure+5);
@@ -484,16 +483,22 @@ function tick(dt){
   } else if(breath){
     p.pressure = Math.max(0, p.pressure - (4+game.stats.breathBonus)*dt);
   } else {
+    const before=p.pressure, beforeG=p.grad;
     if(typing) p.pressure = Math.min(PLAYER.maxPressure+p.maxPressureBonus, p.pressure + PLAYER.pressureTypingRise*dt);
     else p.pressure = Math.max(0, p.pressure - PLAYER.pressureIdleFall*game.stats.pressureIdleMult*dt);
+    // 深呼吸充能：压力涨多少就加多少
+    if(p.pressure>before) addSkillCharge(3, p.pressure-before);
   }
   if(game.stats.pressureRegenPerSec>0 && !typing)
     p.pressure = Math.max(0, p.pressure - game.stats.pressureRegenPerSec*dt);
 
   // 毕业进度
+  let beforeG=p.grad;
   if(slack && !game.stats.kpiNoDrop) p.grad = Math.min(PLAYER.maxGrad+p.maxGradBonus, p.grad+PLAYER.gradRisePerSec*2*dt);
   else if(typing && !slack) p.grad = Math.max(0, p.grad - PLAYER.gradFallPerSec*dt);
   else if(!slack) p.grad = Math.min(PLAYER.maxGrad+p.maxGradBonus, p.grad+PLAYER.gradRisePerSec*dt);
+  // 甩锅充能：毕业涨多少加多少
+  if(p.grad>beforeG) addSkillCharge(4, p.grad-beforeG);
 
   // 毕业进度满→约谈
   if(p.grad>=PLAYER.maxGrad+p.maxGradBonus && !game.kpiEvent.active && game.kpiEvent.cd<=0){
@@ -513,7 +518,7 @@ function tick(dt){
       p.lastAtk = now;
       // 模拟按键
       fireBullet(ch);
-      p.energy -= PLAYER.energyCostPerKey;
+      p.energy -= PLAYER.energyCostPerKey * game.stats.energyCostMult;
     }
   }
 
@@ -553,13 +558,6 @@ function tick(dt){
     // 飞出屏幕
     if(e.fleeing||e.friendly){
       if(e.x<-100||e.x>W+100||e.y<-100||e.y>H+100){
-        if(e.boomerang&&e.boomerang>0){
-          e.boomerang=0; e.fleeing=false; e.friendly=false; e.color=COLORS.orange;
-          const dx=ws.cx-e.x, dy=ws.cy-e.y, l=Math.sqrt(dx*dx+dy*dy)||1;
-          e.vx=dx/l*2.5; e.vy=dy/l*2.5; e.dmg=e.dmg||6;
-          spawnParticles(e.x,e.y,COLORS.orange,'🍳 回旋锅！',1.5);
-          continue;
-        }
         game.enemies.splice(i,1); continue;
       }
       // 友方打敌方
@@ -806,7 +804,7 @@ function onKeyDown(e){
       game.player.lastFire = now;
       fireBullet(fireChar,fireOpts);
       addSkillCharge(0,1); addSkillCharge(1,1);
-      addSkillCharge(2,PLAYER.energyCostPerKey);
+      addSkillCharge(2,PLAYER.energyCostPerKey * game.stats.energyCostMult);
     }
   }
 }
@@ -1039,16 +1037,20 @@ function drawHUD(){
   ctx.textAlign='center'; ctx.textBaseline='middle';
   for(let i=0;i<5;i++){
     const x=ix+i*(slot+sg);
-    ctx.fillStyle=COLORS.panel; ctx.fillRect(x,iy,slot,slot);
-    ctx.strokeStyle=canUseSkill(i)?COLORS.feishuBlue:COLORS.border; ctx.lineWidth=2; ctx.strokeRect(x,iy,slot,slot);
+    const ready = canUseSkill(i);
+    const pulse = ready ? (1 + Math.sin(performance.now()/150)*0.08) : 1;
+    const cw=slot*pulse, ch=slot*pulse;
+    const cx=x+slot/2-cw/2, cy=iy+slot/2-ch/2;
+    ctx.fillStyle=COLORS.panel; ctx.fillRect(cx,cy,cw,ch);
+    ctx.strokeStyle=ready?COLORS.feishuBlue:COLORS.border; ctx.lineWidth=ready?3:2; ctx.strokeRect(cx,cy,cw,ch);
     const sk=SKILLS[i];
-    ctx.globalAlpha=game.skillActive[i]>0?1: (canUseSkill(i)?1:0.5);
-    ctx.font='28px sans-serif'; ctx.fillText(sk.emoji,x+slot/2,iy+slot/2-8);
+    ctx.globalAlpha=game.skillActive[i]>0?1: (ready?1:0.5);
+    ctx.font=`${Math.round(28*pulse)}px sans-serif`; ctx.fillText(sk.emoji,x+slot/2,iy+slot/2-8);
     ctx.globalAlpha=1;
     // 充能条
     const need=sk.chargeNeed/game.stats.chargeSpeedMult;
-    const ch=slot*clamp(game.skillCharge[i]/need,0,1);
-    ctx.fillStyle=COLORS.feishuBlue; ctx.fillRect(x,iy+slot-ch,4,ch);
+    const ch2=slot*clamp(game.skillCharge[i]/need,0,1);
+    ctx.fillStyle=COLORS.feishuBlue; ctx.fillRect(x,iy+slot-ch2,4,ch2);
     // 激活覆盖
     if(game.skillActive[i]>0){
       ctx.fillStyle='rgba(97,175,239,0.3)'; ctx.fillRect(x,iy,slot,slot);
