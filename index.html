@@ -31,7 +31,7 @@ const PLAYER = {
   maxPressure: 100, maxEnergy: 100, maxGrad: 100,
   startGrad: 30,
   baseDamage: 1, baseAtkSpeed: 30,  // 30/s 上限，基本等于不限
-  energyCostPerKey: 0.6, energyRegenPerSec: 1.5,
+  energyCostPerKey: 0.5, energyRegenPerSec: 2.5,
   pressureIdleFall: 0.8,
   pressureTypingRise: 1.0,
   gradRisePerSec: 5,
@@ -100,10 +100,12 @@ const UPGRADES = [
     apply:(s,lv)=>{ s.maxEnergyBonus = lv*10; } },
   { id:'plant',     name:'工位绿植',   tier:'rare', maxLv:3, desc:'压力上限 +10 / -0.5/s',
     apply:(s,lv)=>{ s.maxPressureBonus = lv*10; s.pressureRegenPerSec += lv*0.5; } },
-  { id:'headphone', name:'耳机降噪',   tier:'rare', maxLv:3, desc:'左侧弹幕 -15%',
-    apply:(s,lv)=>{ s.leftDamageMult = 1 - lv*0.15; } },
+  { id:'headphone', name:'降噪耳机',   tier:'rare', maxLv:3, desc:'敌方弹幕速度 -7%/级',
+    apply:(s,lv)=>{ s.enemyBulletSlow = lv*0.07; } },
   { id:'fast_charge',name:'快速充能', tier:'rare', maxLv:3, desc:'技能充能 +10%',
     apply:(s,lv)=>{ s.chargeSpeedMult = 1 + lv*0.1; } },
+  { id:'redbull',   name:'功能饮料',   tier:'rare', maxLv:3, desc:'体力回复 +25%/级',
+    apply:(s,lv)=>{ s.energyRegenMult *= (1 + lv*0.25); } },
   { id:'coffee_refill',name:'咖啡续杯',tier:'rare', maxLv:3, desc:'咖啡持续 +1s',
     apply:(s,lv)=>{ s.coffeeBonus = lv; } },
   { id:'deep_breath',name:'多喝热水', tier:'rare', maxLv:3, desc:'深呼吸多 -2/s',
@@ -162,7 +164,8 @@ function emptyStats() {
   return {
     atkSpeedBonus:0, damageBonus:0, energyRegenMult:1, energyOnKill:0, pressureOnKill:0,
     imDamageMult:1, pressureIdleMult:1, commentBulletMult:1, approvalDrainMult:1, pressureRegenPerSec:0,
-    maxEnergyBonus:0, maxPressureBonus:0, leftDamageMult:1, chargeSpeedMult:1, coffeeBonus:0,
+    maxEnergyBonus:0, maxPressureBonus:0, chargeSpeedMult:1, coffeeBonus:0,
+    enemyBulletSlow: 0, energyRegenMult:1,
     breathBonus:0, blameReturnReduce:0, damageBonus:0, milkTeaBonus:0, pasteBonus:0,
     commentDamageMult:1, upgradeShield:0, n1Package:false, burnMidnight:false, autoClicker:false,
     muscleMemory:false, weeklyReport:false, kpiNoDrop:false, doublePick:false, stableMind:false,
@@ -596,7 +599,8 @@ function tick(dt){
         e.shootTimer=(e.shootTimer||0)+dt;
         if(e.shootTimer>=2){ e.shootTimer=0;
           const dx=ws.cx-e.x, dy=ws.cy-e.y, l=Math.sqrt(dx*dx+dy*dy)||1;
-          game.bullets.push({x:e.x,y:e.y, vx:dx/l*4,vy:dy/l*4,
+          const bs=4*(1-game.stats.enemyBulletSlow);
+          game.bullets.push({x:e.x,y:e.y, vx:dx/l*bs,vy:dy/l*bs,
             damage:4, char:'•', friendly:false, enemyBullet:true, life:0,
             color:COLORS.yellow, size:1, trail:[], pierceLeft:0,
           });
@@ -623,7 +627,6 @@ function tick(dt){
         if(game.bossPatrol.active) dmg*=2;
         if(game.kpiEvent.active) dmg*=2;
         if(e.type==='im') dmg*=game.stats.imDamageMult;
-        if(game.stats.leftDamageMult<1 && e.x<W/2) dmg*=game.stats.leftDamageMult;
         if(p.shield){ p.shield=false; dmg=0; spawnParticles(p.x,p.y,COLORS.blue,'🛡️',1); }
         if(dmg>0){
           if(e.stun>0){ p.stunTimer=e.stun; p.pressure=Math.min(maxP,p.pressure+dmg*2); }
@@ -657,7 +660,6 @@ function tick(dt){
           let dmg=b.damage;
           if(game.bossPatrol.active)dmg*=2;
           if(game.kpiEvent.active)dmg*=2;
-          if(game.stats.leftDamageMult<1 && b.x<W/2) dmg*=game.stats.leftDamageMult;
           dmg*=game.stats.commentBulletMult;
           const maxP=PLAYER.maxPressure+p.maxPressureBonus;
           p.pressure=Math.min(maxP,p.pressure+dmg);
