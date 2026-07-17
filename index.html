@@ -110,8 +110,6 @@ const UPGRADES = [
     apply:(s,lv)=>{ s.coffeeBonus = lv; } },
   { id:'deep_breath',name:'多喝热水', tier:'rare', maxLv:3, desc:'深呼吸多 -2/s',
     apply:(s,lv)=>{ s.breathBonus = lv*2; } },
-  { id:'blame_loop',name:'甩锅闭环',   tier:'rare', maxLv:3, desc:'甩锅期间 +1s 不能打字',
-    apply:(s,lv)=>{ s.blameLockExt = lv; } },
   // Epic 紫 2级
   { id:'ceo_shadow',name:'老板附体',   tier:'epic', maxLv:2, desc:'伤害 +1',
     apply:(s,lv)=>{ s.damageBonus += lv; } },
@@ -229,16 +227,23 @@ function playKeySound(){
   }catch(e){}
 }
 
-// === 8-bit 背景音乐 ===
+// === 8-bit 背景音乐（64步循环，约11.5秒，四段变化）===
 let bgmTimer=null, bgmStep=0;
-const BGM_NOTES = [
-  // C 大调激昂进行：C E G B C5 B G E (循环)
-  262, 330, 392, 494, 523, 494, 392, 330,
-  294, 370, 440, 587, 659, 587, 440, 370,
-  330, 415, 494, 659, 698, 659, 494, 415,
-  262, 330, 392, 523, 659, 784, 659, 523,
-];
-const BGM_BASS = [131, 131, 196, 196, 165, 165, 196, 196];
+// A 段：主旋律 C-G-Am-F 进行（激昂上行）
+const A_MELODY = [262,330,392,523, 330,392,494,659, 349,440,523,698, 392,494,587,784];
+// B 段：下行（紧张感）
+const B_MELODY = [784,659,523,392, 698,587,494,392, 659,523,440,349, 523,494,440,392];
+// C 段：跳奏（高潮感）
+const C_MELODY = [523,0,659,0, 587,0,784,0, 659,0,784,0, 880,784,659,523];
+// D 段：回归（准备重复）
+const D_MELODY = [392,494,587,659, 440,523,659,698, 392,523,659,784, 330,392,523,659];
+const BGM_NOTES = [...A_MELODY, ...B_MELODY, ...C_MELODY, ...D_MELODY];
+// 贝斯 pattern：A段稳，B段密，C段跟旋律，D段爬
+const BGM_BASS_A = [131,131,196,196, 165,165,196,196];
+const BGM_BASS_B = [196,196,165,165, 131,131,196,196];
+const BGM_BASS_C = [131,0,196,0, 131,0,262,0];
+const BGM_BASS_D = [131,165,196,262, 196,165,131,196];
+const BGM_BASS = [...BGM_BASS_A,...BGM_BASS_B,...BGM_BASS_C,...BGM_BASS_D];
 function startBGM(){
   if(bgmTimer) return;
   try{
@@ -249,24 +254,33 @@ function startBGM(){
     bgmTimer = setInterval(()=>{
       if(game.state!==State.PLAYING && game.state!==State.PAUSED) return;
       const t=audioCtx.currentTime;
-      // 主旋律
+      // 主旋律：0 表示休止符
       const freq = BGM_NOTES[bgmStep % BGM_NOTES.length];
-      const o=audioCtx.createOscillator(), g=audioCtx.createGain();
-      o.type='square'; o.frequency.value=freq;
-      g.gain.setValueAtTime(0.06,t);
-      g.gain.exponentialRampToValueAtTime(0.001,t+tempo*0.9);
-      o.connect(g); g.connect(audioCtx.destination); o.start(t); o.stop(t+tempo*0.95);
-      // 贝斯（每 2 步一个音）
-      if(bgmStep%2===0){
-        const bf=BGM_BASS[(bgmStep/2)%BGM_BASS.length];
-        const o2=audioCtx.createOscillator(), g2=audioCtx.createGain();
-        o2.type='triangle'; o2.frequency.value=bf;
-        g2.gain.setValueAtTime(0.08,t);
-        g2.gain.exponentialRampToValueAtTime(0.001,t+tempo*1.8);
-        o2.connect(g2); g2.connect(audioCtx.destination); o2.start(t); o2.stop(t+tempo*1.9);
+      if(freq>0){
+        const o=audioCtx.createOscillator(), g=audioCtx.createGain();
+        o.type='square'; o.frequency.value=freq;
+        // C段跳奏短一点
+        const seg = Math.floor(bgmStep/16);
+        const dur = seg===2 ? tempo*0.5 : tempo*0.85;
+        const vol = seg===2 ? 0.08 : 0.05;
+        g.gain.setValueAtTime(vol,t);
+        g.gain.exponentialRampToValueAtTime(0.001,t+dur);
+        o.connect(g); g.connect(audioCtx.destination); o.start(t); o.stop(t+dur+0.02);
       }
-      // 鼓点（每 4 步一声噪音）
-      if(bgmStep%4===0){
+      // 贝斯（每 2 步）
+      if(bgmStep%2===0){
+        const bf=BGM_BASS[(bgmStep/2)|0 % BGM_BASS.length];
+        if(bf>0){
+          const o2=audioCtx.createOscillator(), g2=audioCtx.createGain();
+          o2.type='triangle'; o2.frequency.value=bf;
+          g2.gain.setValueAtTime(0.07,t);
+          g2.gain.exponentialRampToValueAtTime(0.001,t+tempo*1.5);
+          o2.connect(g2); g2.connect(audioCtx.destination); o2.start(t); o2.stop(t+tempo*1.6);
+        }
+      }
+      // 鼓点（每 4 步）- C段加倍密集
+      const drumEvery = (Math.floor(bgmStep/16)===2) ? 2 : 4;
+      if(bgmStep%drumEvery===0){
         const bufferSize = audioCtx.sampleRate*0.05;
         const buffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
         const data = buffer.getChannelData(0);
@@ -1218,7 +1232,7 @@ function drawHelpScreen(){
   ctx.fillText('📜 被动词条（升级获得）',m*2+colW,y2); y2+=28;
   const tiers=[
     ['白色 Common × 10','最大 5 级',COLORS.white,['键程优化(攻速上限)、双显示器(伤害+0.5)','保温杯(体力回复+15%)、中性笔(击杀回体力)','笔记本(击杀-压力)、已读不回(IM-8%伤害)','工学椅(空闲降压+15%)、需求记录员(@小弹-20%)','异步沟通(审批-15%体力)、会议摸鱼(硬直-压力)']],
-    ['蓝色 Rare × 7','最大 3 级',COLORS.blue,['备用充电器(体力上限+10)、耳机降噪(左侧-15%)','快速充能(技能+10%)、咖啡续杯(咖啡+1秒)','多喝热水(深呼吸-2/s压力)','甩锅闭环(回旋锅-30%)','绿植(压力上限+10/秒减)']],
+    ['蓝色 Rare × 6','最大 3 级',COLORS.blue,['备用充电器(体力上限+10)、耳机降噪(弹幕减速)','快速充能(技能+10%)、咖啡续杯(咖啡+1秒)','多喝热水(深呼吸-2/s压力)、功能饮料(体力+25%)','绿植(压力上限+10/秒减)']],
     ['紫色 Epic × 8','最大 2 级',COLORS.purple,['老板附体(伤害+1)、摸鱼大师(摸鱼+0.5秒)','高级粘贴(Ctrl+V+1目标)、需求考古学(@评论-40%)','静默升级(选卡后无敌)、N+1大礼包(首次清屏)','熬夜修仙(体力0仍打 每键+1压力)','自动点击器(体力0自动打字)']],
     ['金色 Legendary × 8','唯一',COLORS.yellow,['双选(本次升级5选2)、996肌肉记忆(17点伤害+2)','周报外挂(甩锅刷新充能)、股权承诺书(摸鱼毕业不涨)','情绪稳定器(高压不禁打)、被动反击(25%反弹)','甩锅大师(甩锅伤害+100%)、咖啡成瘾(低体力自动咖啡)']],
   ];
