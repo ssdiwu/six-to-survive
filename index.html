@@ -289,7 +289,7 @@ function fireBullet(char, opts={}){
       size:opts.isSpace?1.3:1.0, trail:[],
     });
   }
-  p.energy -= PLAYER.energyCostPerKey * game.stats.energyCostMult;
+  if(!game.skillActive[0]) p.energy = Math.max(0, p.energy - PLAYER.energyCostPerKey * game.stats.energyCostMult);
   game.combo++; game.maxCombo=Math.max(game.maxCombo,game.combo); game.comboTimer=2.0;
   p.pose='typing'; p.poseTimer=0; p.lastAtk=NOW();
   playKeySound(opts);
@@ -519,7 +519,7 @@ function tick(dt){
       p.lastAtk = now;
       // 模拟按键
       fireBullet(ch);
-      p.energy -= PLAYER.energyCostPerKey * game.stats.energyCostMult;
+      if(!game.skillActive[0]) p.energy -= PLAYER.energyCostPerKey * game.stats.energyCostMult;
     }
   }
 
@@ -790,22 +790,29 @@ function onKeyDown(e){
     if(pressureCrit) canFire=false;
 
     const coffee=game.skillActive[0]>0;
-    let atkInterval = 1.0/((PLAYER.baseAtkSpeed+game.stats.atkSpeedBonus));
     // 体力梯度
     const maxE=PLAYER.maxEnergy+game.player.maxEnergyBonus;
     const eRatio=maxE>0?game.player.energy/maxE:1;
     let eMult = eRatio>=0.8?1: eRatio<=0.3?0.5: 0.5+0.5*(eRatio-0.3)/0.5;
-    atkInterval /= eMult;
-    if(game.skillActive[0]>0||game.skillActive[1]>0) atkInterval/=2; // 咖啡/Ctrl+V 攻速翻倍
-    const gm=game.gameMinute/60;
-    if(game.stats.muscleMemory && gm>=17) atkInterval/=1.5;
+    // 咖啡：体力归零后还能打（不消耗体力）
 
     game.player.lastKeyTime = now;
     if(canFire){
       game.player.lastFire = now;
       fireBullet(fireChar,fireOpts);
+      // 咖啡双发：额外打第二近的敌人
+      if(coffee){
+        const targets = nearestNEnemies(game.player.x, game.player.y, 2);
+        if(targets.length>=2){
+          const t=targets[1];
+          const ws=workspaceRect();
+          const dx=t.x-ws.cx, dy=t.y-ws.cy, l=Math.sqrt(dx*dx+dy*dy)||1;
+          game.bullets.push({x:ws.cx,y:ws.cy,vx:dx/l*8,vy:dy/l*8,damage:PLAYER.baseDamage+game.stats.damageBonus,char:fireChar,friendly:true,life:0,color:COLORS.orange,isSpace:!!fireOpts.isSpace,isEnter:!!fireOpts.isEnter,pierceLeft:0,size:fireOpts.isSpace?1.3:1.0,trail:[]});
+        }
+      }
       addSkillCharge(0,1); addSkillCharge(1,1);
-      addSkillCharge(2,PLAYER.energyCostPerKey * game.stats.energyCostMult);
+      if(!coffee) addSkillCharge(2,PLAYER.energyCostPerKey * game.stats.energyCostMult);
+      else addSkillCharge(2,0); // 咖啡不耗体力
     }
   }
 }
@@ -1019,8 +1026,8 @@ function drawHUD(){
   // 三资源条
   const barW=180, barH=14, gap=30;
   const bars=[
-    {label:'😤 压力',val:p.pressure,max:maxP,color:COLORS.red,reverse:true},
     {label:'💪 体力',val:p.energy,max:maxE,color:COLORS.yellow},
+    {label:'😤 压力',val:p.pressure,max:maxP,color:COLORS.red,reverse:true},
     {label:'🎓 毕业进度',val:p.grad,max:maxG,color:COLORS.purple,reverse:true},
   ];
   ctx.textAlign='left'; ctx.textBaseline='middle'; ctx.font='12px "JetBrains Mono",sans-serif';
@@ -1113,7 +1120,7 @@ function drawHelpScreen(){
   ctx.fillStyle=COLORS.cyan; ctx.font='bold 18px sans-serif';
   ctx.fillText('🎮 主动技能（按键 1-5）',m,y); y+=28;
   const skillDesc=[
-    ['☕ 咖啡','250 键充能','4 秒攻速翻倍、不耗体力'],
+    ['☕ 咖啡','250 键充能','4 秒双发追踪、不耗体力'],
     ['⌨️ Ctrl+V','400 键充能','3 秒每键打最近 3 个敌人'],
     ['🧋 摸鱼','消耗 300 体力','2.5 秒冻结敌人、无敌、-20 压力'],
     ['🫧 深呼吸','压力涨 125','5 秒内每秒 -4 压力'],
