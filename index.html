@@ -227,23 +227,27 @@ function playKeySound(){
   }catch(e){}
 }
 
-// === 8-bit 背景音乐（64步循环，约11.5秒，四段变化）===
-let bgmTimer=null, bgmStep=0;
-// A 段：主旋律 C-G-Am-F 进行（激昂上行）
+// === 8-bit 背景音乐（128步循环，约23秒，8段变化）===
+let bgmTimer=null, bgmStep=0, bgmGain=null;
 const A_MELODY = [262,330,392,523, 330,392,494,659, 349,440,523,698, 392,494,587,784];
-// B 段：下行（紧张感）
 const B_MELODY = [784,659,523,392, 698,587,494,392, 659,523,440,349, 523,494,440,392];
-// C 段：跳奏（高潮感）
 const C_MELODY = [523,0,659,0, 587,0,784,0, 659,0,784,0, 880,784,659,523];
-// D 段：回归（准备重复）
 const D_MELODY = [392,494,587,659, 440,523,659,698, 392,523,659,784, 330,392,523,659];
-const BGM_NOTES = [...A_MELODY, ...B_MELODY, ...C_MELODY, ...D_MELODY];
-// 贝斯 pattern：A段稳，B段密，C段跟旋律，D段爬
-const BGM_BASS_A = [131,131,196,196, 165,165,196,196];
-const BGM_BASS_B = [196,196,165,165, 131,131,196,196];
-const BGM_BASS_C = [131,0,196,0, 131,0,262,0];
-const BGM_BASS_D = [131,165,196,262, 196,165,131,196];
-const BGM_BASS = [...BGM_BASS_A,...BGM_BASS_B,...BGM_BASS_C,...BGM_BASS_D];
+const E_MELODY = [311,392,466,622, 349,440,523,698, 311,466,622,784, 294,392,494,587];
+const F_MELODY = [523,659,784,1047, 659,784,988,0, 698,880,1047,0, 784,659,523,0];
+const G_MELODY = [523,659,784,1047, 659,784,988,1319, 698,880,1047,1397, 784,988,1175,1568];
+const H_MELODY = [392,0,330,0, 349,0,294,0, 262,330,392,523, 330,392,523,659];
+const BGM_NOTES = [...A_MELODY,...B_MELODY,...C_MELODY,...D_MELODY,...E_MELODY,...F_MELODY,...G_MELODY,...H_MELODY];
+const BGM_BASS = [
+  131,131,196,196, 165,165,196,196,
+  196,196,165,165, 131,131,196,196,
+  131,0,196,0, 131,0,262,0,
+  131,165,196,262, 196,165,131,196,
+  155,155,233,233, 175,175,233,233,
+  131,196,262,0, 196,262,0,0,
+  131,196,0,262, 0,196,131,0,
+  131,0,165,0, 196,0,131,0,
+];
 function startBGM(){
   if(bgmTimer) return;
   try{
@@ -252,28 +256,27 @@ function startBGM(){
     bgmStep=0;
     const tempo = 0.18; // 每音符间隔秒
     bgmTimer = setInterval(()=>{
-      if(game.state!==State.PLAYING && game.state!==State.PAUSED) return;
+      if(game.state!==State.PLAYING && game.state!==State.PAUSED && game.state!==State.PAUSED_HELP && game.state!==State.GAME_OVER) return;
       const t=audioCtx.currentTime;
+      const vol = game.state===State.PLAYING ? 1 : 0.25;
       // 主旋律：0 表示休止符
       const freq = BGM_NOTES[bgmStep % BGM_NOTES.length];
       if(freq>0){
         const o=audioCtx.createOscillator(), g=audioCtx.createGain();
         o.type='square'; o.frequency.value=freq;
-        // C段跳奏短一点
         const seg = Math.floor(bgmStep/16);
         const dur = seg===2 ? tempo*0.5 : tempo*0.85;
-        const vol = seg===2 ? 0.08 : 0.05;
-        g.gain.setValueAtTime(vol,t);
+        g.gain.setValueAtTime(0.05*vol,t);
         g.gain.exponentialRampToValueAtTime(0.001,t+dur);
         o.connect(g); g.connect(audioCtx.destination); o.start(t); o.stop(t+dur+0.02);
       }
       // 贝斯（每 2 步）
       if(bgmStep%2===0){
-        const bf=BGM_BASS[(bgmStep/2)|0 % BGM_BASS.length];
+        const bf=BGM_BASS[((bgmStep/2)|0) % BGM_BASS.length];
         if(bf>0){
           const o2=audioCtx.createOscillator(), g2=audioCtx.createGain();
           o2.type='triangle'; o2.frequency.value=bf;
-          g2.gain.setValueAtTime(0.07,t);
+          g2.gain.setValueAtTime(0.07*vol,t);
           g2.gain.exponentialRampToValueAtTime(0.001,t+tempo*1.5);
           o2.connect(g2); g2.connect(audioCtx.destination); o2.start(t); o2.stop(t+tempo*1.6);
         }
@@ -287,7 +290,7 @@ function startBGM(){
         for(let i=0;i<bufferSize;i++) data[i]=Math.random()*2-1;
         const noise=audioCtx.createBufferSource(), ng=audioCtx.createGain();
         noise.buffer=buffer;
-        ng.gain.setValueAtTime(0.04,t);
+        ng.gain.setValueAtTime(0.04*vol,t);
         ng.gain.exponentialRampToValueAtTime(0.001,t+0.05);
         noise.connect(ng); ng.connect(audioCtx.destination); noise.start(t); noise.stop(t+0.05);
       }
