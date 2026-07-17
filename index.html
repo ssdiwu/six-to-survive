@@ -52,9 +52,9 @@ const SKILLS = [
     desc:'每键同时打3个敌人' },
   { id:'milktea',   emoji:'🧋', name:'摸鱼',    chargeBy:'energy',  chargeNeed:300, duration:2.5,
     desc:'冻结敌人 无敌 -20压力' },
-  { id:'breath',    emoji:'🫧', name:'深呼吸', chargeBy:'pressure',chargeNeed:250, duration:5,
+  { id:'breath',    emoji:'🫧', name:'深呼吸', chargeBy:'pressure',chargeNeed:500, duration:5,
     desc:'-4/s 压力' },
-  { id:'blame',     emoji:'🍳', name:'甩锅',    chargeBy:'grad',    chargeNeed:80, duration:0,
+  { id:'blame',     emoji:'🍳', name:'甩锅',    chargeBy:'grad',    chargeNeed:40, duration:0,
     desc:'全屏反弹 毕业清零' },
 ];
 
@@ -159,6 +159,7 @@ const ctx = canvas.getContext('2d');
 let W=0, H=0, mouseX=0, mouseY=0;
 const State = { TITLE:'title', PLAYING:'playing', PAUSED:'paused', PAUSED_HELP:'paused_help', LEVEL_UP:'levelup', GAME_OVER:'gameover' };
 let game;
+let helpReturnState = State.TITLE;
 
 function emptyStats() {
   return {
@@ -816,6 +817,7 @@ window.addEventListener('mousemove',e=>{mouseX=e.clientX;mouseY=e.clientY;});
 // ============================================================
 function pointInRect(px,py,r){return px>=r.x&&px<=r.x+r.w&&py>=r.y&&py<=r.y+r.h;}
 function btnStartRect(){const w=240,h=56;return{x:W/2-w/2,y:H/2+60,w,h};}
+function btnTitleHelpRect(){const w=200,h=48;return{x:W/2-w/2,y:H/2+130,w,h};}
 function btnResumeRect(){const w=200,h=48;return{x:W/2-w/2,y:H/2,w,h};}
 function btnQuitRect(){const w=200,h=48;return{x:W/2-w/2,y:H/2+70,w,h};}
 function btnHelpRect(){const w=200,h=48;return{x:W/2-w/2,y:H/2+140,w,h};}
@@ -829,14 +831,17 @@ function levelCardRects(){
 }
 function onMouseClick(e){
   const mx=e.clientX,my=e.clientY;
-  if(game.state===State.TITLE){ if(pointInRect(mx,my,btnStartRect())) startGame(); }
+  if(game.state===State.TITLE){
+    if(pointInRect(mx,my,btnStartRect())) startGame();
+    else if(pointInRect(mx,my,btnTitleHelpRect())){ helpReturnState=State.TITLE; game.state=State.PAUSED_HELP; }
+  }
   else if(game.state===State.PAUSED){
     if(pointInRect(mx,my,btnResumeRect())) game.state=State.PLAYING;
     else if(pointInRect(mx,my,btnQuitRect())) game=newGame();
-    else if(pointInRect(mx,my,btnHelpRect())) game.state=State.PAUSED_HELP;
+    else if(pointInRect(mx,my,btnHelpRect())){ helpReturnState=State.PAUSED; game.state=State.PAUSED_HELP; }
   }
   else if(game.state===State.PAUSED_HELP){
-    if(pointInRect(mx,my,btnHelpBackRect())) game.state=State.PAUSED;
+    if(pointInRect(mx,my,btnHelpBackRect())) game.state=helpReturnState||State.TITLE;
   }
   else if(game.state===State.GAME_OVER){
     if(pointInRect(mx,my,btnRestartRect())) startGame();
@@ -1083,6 +1088,7 @@ function drawTitleScreen(){
   ctx.fillText('狂敲键盘清飞书消息，撑到 18:00 下班',W/2,H/2);
   ctx.fillStyle=COLORS.border; ctx.fillText('A-Z 打字攻击 ｜ 1-5 技能 ｜ Esc 暂停',W/2,H/2+30);
   drawButton(btnStartRect(),'开始上班',pointInRect(mouseX,mouseY,btnStartRect()));
+  drawButton(btnTitleHelpRect(),'📖 百科全书',pointInRect(mouseX,mouseY,btnTitleHelpRect()),COLORS.feishuBlue);
 }
 function drawPauseScreen(){
   ctx.fillStyle='rgba(0,0,0,0.7)'; ctx.fillRect(0,0,W,H);
@@ -1275,6 +1281,7 @@ function loop(ts){
   ctx.translate(shake, shake);
   drawBackground();
   if(game.state===State.TITLE) drawTitleScreen();
+  if(game.state===State.PAUSED_HELP) drawHelpScreen();
   else{
     drawWorkspace(); drawPlayer(); drawBullets(); drawEnemies(); drawParticles();
     drawBossPatrol(); drawHUD(); drawKpiEvent(); drawPressureEffect();
