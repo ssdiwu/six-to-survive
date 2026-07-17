@@ -780,11 +780,7 @@ function onKeyDown(e){
     if(game.skillActive[2]>0) return; // 摸鱼期间不能打
     let canFire=true;
     const energyZero=game.player.energy<=0;
-    if(energyZero){
-      if(game.stats.burnMidnight){ game.player.pressure=Math.min(PLAYER.maxPressure+game.player.maxPressureBonus, game.player.pressure+1);
-        if(game.player.pressure>=PLAYER.maxPressure+game.player.maxPressureBonus){ if(!trySeverance()){endGame(false,'精神崩溃');return;} }
-      } else if(!game.stats.autoClicker) canFire=false;
-    }
+    if(energyZero && !game.stats.burnMidnight && !game.stats.autoClicker) canFire=false;
     const maxP=PLAYER.maxPressure+game.player.maxPressureBonus;
     const pressureCrit = game.player.pressure>=maxP*0.7 && !game.stats.stableMind;
     if(pressureCrit) canFire=false;
@@ -800,6 +796,12 @@ function onKeyDown(e){
     if(canFire){
       game.player.lastFire = now;
       fireBullet(fireChar,fireOpts);
+      // 熬夜修仙：体力0时每发+1压力
+      if(energyZero && game.stats.burnMidnight){
+        const maxP=PLAYER.maxPressure+game.player.maxPressureBonus;
+        game.player.pressure=Math.min(maxP, game.player.pressure+1);
+        if(game.player.pressure>=maxP){ if(!trySeverance()){endGame(false,'精神崩溃');return;} }
+      }
       // 咖啡双发：额外打第二近的敌人
       if(coffee){
         const targets = nearestNEnemies(game.player.x, game.player.y, 2);
