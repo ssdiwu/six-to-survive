@@ -41,7 +41,7 @@ const PLAYER = {
 
 const TIME = {
   startHour: 9, endHour: 18,
-  gameMinutesPerRealSec: 45 / 60,
+  gameMinutesPerRealSec: 1.5,
   slackDuration: 3,
 };
 
@@ -55,7 +55,7 @@ const SKILLS = [
   { id:'breath',    emoji:'🫧', name:'深呼吸', chargeBy:'pressure',chargeNeed:125, duration:5,
     desc:'-4/s 压力' },
   { id:'blame',     emoji:'🍳', name:'甩锅',    chargeBy:'grad',    chargeNeed:160, duration:0,
-    desc:'全屏反弹 毕业清零' },
+    desc:'全屏 AOE 伤害 毕业清零' },
 ];
 
 const ENEMIES = {
@@ -194,6 +194,7 @@ function newGame() {
     bossPatrol:{active:false,timer:0,angle:0,dir:1}, kpiEvent:{active:false,timer:0,cd:0},
     finalRush:false, startTime:0, endTime:0, won:false, gameOverReason:'',
     lastAtkTime:0, spawnTimer:0, keys:{}, n1Used:false,
+    screenFlash:null,
   };
 }
 game = newGame();
@@ -225,6 +226,59 @@ function playKeySound(){
     g.gain.setValueAtTime(0.03,audioCtx.currentTime);
     g.gain.exponentialRampToValueAtTime(0.001,audioCtx.currentTime+0.02);
     o.connect(g); g.connect(audioCtx.destination); o.start(); o.stop(audioCtx.currentTime+0.02);
+  }catch(e){}
+}
+
+// === 8-bit 背景音乐 ===
+let audioCtx=null, bgmTimer=null, bgmStep=0;
+const BGM_NOTES = [
+  // C 大调激昂进行：C E G B C5 B G E (循环)
+  262, 330, 392, 494, 523, 494, 392, 330,
+  294, 370, 440, 587, 659, 587, 440, 370,
+  330, 415, 494, 659, 698, 659, 494, 415,
+  262, 330, 392, 523, 659, 784, 659, 523,
+];
+const BGM_BASS = [131, 131, 196, 196, 165, 165, 196, 196];
+function startBGM(){
+  if(bgmTimer) return;
+  try{
+    if(!audioCtx) audioCtx=new (window.AudioContext||window.webkitAudioContext)();
+    if(audioCtx.state==='suspended') audioCtx.resume();
+    bgmStep=0;
+    const tempo = 0.18; // 每音符间隔秒
+    bgmTimer = setInterval(()=>{
+      if(game.state!==State.PLAYING && game.state!==State.PAUSED) return;
+      const t=audioCtx.currentTime;
+      // 主旋律
+      const freq = BGM_NOTES[bgmStep % BGM_NOTES.length];
+      const o=audioCtx.createOscillator(), g=audioCtx.createGain();
+      o.type='square'; o.frequency.value=freq;
+      g.gain.setValueAtTime(0.06,t);
+      g.gain.exponentialRampToValueAtTime(0.001,t+tempo*0.9);
+      o.connect(g); g.connect(audioCtx.destination); o.start(t); o.stop(t+tempo*0.95);
+      // 贝斯（每 2 步一个音）
+      if(bgmStep%2===0){
+        const bf=BGM_BASS[(bgmStep/2)%BGM_BASS.length];
+        const o2=audioCtx.createOscillator(), g2=audioCtx.createGain();
+        o2.type='triangle'; o2.frequency.value=bf;
+        g2.gain.setValueAtTime(0.08,t);
+        g2.gain.exponentialRampToValueAtTime(0.001,t+tempo*1.8);
+        o2.connect(g2); g2.connect(audioCtx.destination); o2.start(t); o2.stop(t+tempo*1.9);
+      }
+      // 鼓点（每 4 步一声噪音）
+      if(bgmStep%4===0){
+        const bufferSize = audioCtx.sampleRate*0.05;
+        const buffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
+        const data = buffer.getChannelData(0);
+        for(let i=0;i<bufferSize;i++) data[i]=Math.random()*2-1;
+        const noise=audioCtx.createBufferSource(), ng=audioCtx.createGain();
+        noise.buffer=buffer;
+        ng.gain.setValueAtTime(0.04,t);
+        ng.gain.exponentialRampToValueAtTime(0.001,t+0.05);
+        noise.connect(ng); ng.connect(audioCtx.destination); noise.start(t); noise.stop(t+0.05);
+      }
+      bgmStep++;
+    }, tempo*1000);
   }catch(e){}
 }
 
@@ -325,19 +379,25 @@ function useSkill(idx){
       game.skillActive[3] = s.duration;
       break;
     case 'blame':
+      // 全屏 AOE 伤害
+      const aoeDmg = 10 * game.stats.blameDamageMult;
       for(const e of game.enemies){
         if(e.friendly) continue;
-        if(e.type==='colleague'){
-          e.friendly=true; e.color=COLORS.orange; e.damage=10*game.stats.blameDamageMult;
-          e.vx=-e.vx; e.vy=-e.vy;
-        } else {
-          e.vx=-e.vx; e.vy=-e.vy; e.fleeing=true;
+        e.hp -= aoeDmg;
+        spawnParticles(e.x,e.y,COLORS.orange,`-${Math.round(aoeDmg)}`,0.8);
+        if(e.hp<=0){
+          game.kills++; game.killsSinceLevel++;
+          for(let k=0;k<6;k++) game.particles.push({x:e.x,y:e.y,color:e.color,text:'',vx:rand(-3,3),vy:rand(-3,3),life:0.5,maxLife:0.5,isSpark:true,size:rand(2,4)});
         }
       }
+      game.enemies = game.enemies.filter(e=>e.hp>0 || e.friendly);
+      // 屏幕闪橙
+      game.screenFlash = {color:'rgba(209,154,102,0.4)',t:0.3};
       p.pressure = Math.max(0, p.pressure+5);
       p.grad = 0;
-      if(game.stats.weeklyReport){ /* 不消耗充能 */ }
+      if(game.stats.weeklyReport){}
       else game.skillCharge[4]=0;
+      addKillRewards  // 不清空 AOE 击杀奖励
       return;
   }
   game.skillCharge[idx]=0;
@@ -458,6 +518,7 @@ function tick(dt){
   p.hitFlash=Math.max(0,p.hitFlash-dt);
   p.comboTimer=Math.max(0,p.comboTimer-dt);
   p.hitShake=Math.max(0,p.hitShake-dt);
+  if(game.screenFlash){ game.screenFlash.t-=dt; if(game.screenFlash.t<=0) game.screenFlash=null; }
   if(p.comboTimer<=0) game.combo=0;
 
   // 咖啡成瘾自动触发
@@ -742,6 +803,7 @@ function endGame(won,reason){
 function startGame(){
   game=newGame(); game.state=State.PLAYING; game.startTime=NOW();
   const ws=workspaceRect(); game.player.x=ws.cx; game.player.y=ws.cy;
+  startBGM();
 }
 
 // ============================================================
@@ -1126,7 +1188,7 @@ function drawHelpScreen(){
     ['⌨️ Ctrl+V','400 键充能','3 秒每键打最近 3 个敌人'],
     ['🧋 摸鱼','消耗 300 体力','2.5 秒冻结敌人、无敌、-20 压力'],
     ['🫧 深呼吸','压力涨 125','5 秒内每秒 -4 压力'],
-    ['🍳 甩锅','毕业涨 160','全屏弹幕反弹、清零毕业进度'],
+    ['🍳 甩锅','毕业涨 160','全屏 AOE 伤害、清零毕业进度'],
   ];
   ctx.font='13px sans-serif';
   for(const [name,charge,desc] of skillDesc){
@@ -1301,6 +1363,12 @@ function loop(ts){
     if(game.state===State.GAME_OVER) drawGameOverScreen();
   }
   ctx.restore();
+  if(game.screenFlash){
+    ctx.fillStyle = game.screenFlash.color;
+    ctx.globalAlpha = game.screenFlash.t/0.3;
+    ctx.fillRect(0,0,W,H);
+    ctx.globalAlpha = 1;
+  }
   requestAnimationFrame(loop);
 }
 requestAnimationFrame(loop);
