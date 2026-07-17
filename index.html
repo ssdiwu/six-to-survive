@@ -1280,13 +1280,14 @@ function loop(ts){
   ctx.save();
   ctx.translate(shake, shake);
   drawBackground();
-  if(game.state===State.TITLE) drawTitleScreen();
-  if(game.state===State.PAUSED_HELP) drawHelpScreen();
-  else{
+  if(game.state===State.PAUSED_HELP){
+    drawHelpScreen();
+  } else if(game.state===State.TITLE){
+    drawTitleScreen();
+  } else {
     drawWorkspace(); drawPlayer(); drawBullets(); drawEnemies(); drawParticles();
     drawBossPatrol(); drawHUD(); drawKpiEvent(); drawPressureEffect();
     if(game.state===State.PAUSED) drawPauseScreen();
-    if(game.state===State.PAUSED_HELP) drawHelpScreen();
     if(game.state===State.LEVEL_UP) drawLevelUpScreen();
     if(game.state===State.GAME_OVER) drawGameOverScreen();
   }
