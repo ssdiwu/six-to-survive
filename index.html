@@ -198,6 +198,7 @@ function newGame() {
     lastAtkTime:0, spawnTimer:0, keys:{}, n1Used:false,
     screenFlash:null,
     eventsFired: {}, // 记录已触发的时间点事件
+    waveAnnounce: null, // {text, color, t}
   };
 }
 game = newGame();
@@ -233,7 +234,7 @@ function playKeySound(){
 }
 
 // === 8-bit 背景音乐（128步循环，约23秒，8段变化）===
-let bgmTimer=null, bgmStep=0, bgmGain=null;
+let bgmTimer=null, bgmStep=0, bgmGain=null, bgmIntensity=1;
 const A_MELODY = [262,330,392,523, 330,392,494,659, 349,440,523,698, 392,494,587,784];
 const B_MELODY = [784,659,523,392, 698,587,494,392, 659,523,440,349, 523,494,440,392];
 const C_MELODY = [523,0,659,0, 587,0,784,0, 659,0,784,0, 880,784,659,523];
@@ -259,13 +260,14 @@ function startBGM(){
     if(!audioCtx) audioCtx=new (window.AudioContext||window.webkitAudioContext)();
     if(audioCtx.state==='suspended') audioCtx.resume();
     bgmStep=0;
-    const tempo = 0.18; // 每音符间隔秒
+    const tempo = 0.18 / bgmIntensity; // 强度越高节奏越快
+    const pitchUp = bgmIntensity > 1 ? 1.3 : 1; // 高压时升调
     bgmTimer = setInterval(()=>{
       if(game.state!==State.PLAYING && game.state!==State.PAUSED && game.state!==State.PAUSED_HELP && game.state!==State.GAME_OVER) return;
       const t=audioCtx.currentTime;
       const vol = game.state===State.PLAYING ? 1 : 0.25;
       // 主旋律：0 表示休止符
-      const freq = BGM_NOTES[bgmStep % BGM_NOTES.length];
+      const freq = BGM_NOTES[bgmStep % BGM_NOTES.length] * pitchUp;
       if(freq>0){
         const o=audioCtx.createOscillator(), g=audioCtx.createGain();
         o.type='square'; o.frequency.value=freq;
@@ -280,7 +282,7 @@ function startBGM(){
         const bf=BGM_BASS[((bgmStep/2)|0) % BGM_BASS.length];
         if(bf>0){
           const o2=audioCtx.createOscillator(), g2=audioCtx.createGain();
-          o2.type='triangle'; o2.frequency.value=bf;
+          o2.type='triangle'; o2.frequency.value=bf*pitchUp;
           g2.gain.setValueAtTime(0.07*vol,t);
           g2.gain.exponentialRampToValueAtTime(0.001,t+tempo*1.5);
           o2.connect(g2); g2.connect(audioCtx.destination); o2.start(t); o2.stop(t+tempo*1.6);
@@ -432,19 +434,19 @@ function getKillsForLevel(lv){ return Math.floor(15*Math.pow(1.15, lv)); }
 
 function triggerWave(ev){
   const ws=workspaceRect();
+  game.waveAnnounce = { text: ev.name, t: 2.5 };
+  bgmIntensity = ev.type==='final' ? 2 : (ev.type==='im' ? 1.5 : 1.2);
+  setTimeout(()=>{ bgmIntensity = 1; }, 8000);
   if(ev.type==='meeting'){
-    // 早会：8 个会议邀请从四周冲进来
     spawnParticles(W/2,H/2-80,COLORS.purple,'📅 '+ev.name,3);
     game.screenFlash={color:'rgba(201,125,255,0.3)',t:0.5};
     for(let i=0;i<8;i++) setTimeout(()=>spawnEnemy('meeting'), i*200);
   } else if(ev.type==='im'){
-    // 午休后：15 条 IM 消息轰炸
     spawnParticles(W/2,H/2-80,COLORS.feishuBlue,'💬 '+ev.name,3);
     game.screenFlash={color:'rgba(51,112,255,0.3)',t:0.5};
     for(let i=0;i<15;i++) setTimeout(()=>spawnEnemy('im'), i*100);
     setTimeout(()=>spawnEnemy('colleague'), 1000);
   } else if(ev.type==='final'){
-    // 下班前：全类型混合
     spawnParticles(W/2,H/2-80,COLORS.orange,'⏰ '+ev.name,3);
     game.screenFlash={color:'rgba(209,154,102,0.4)',t:0.6};
     for(let i=0;i<6;i++) setTimeout(()=>spawnEnemy('im'), i*100);
@@ -578,6 +580,7 @@ function tick(dt){
   p.comboTimer=Math.max(0,p.comboTimer-dt);
   p.hitShake=Math.max(0,p.hitShake-dt);
   if(game.screenFlash){ game.screenFlash.t-=dt; if(game.screenFlash.t<=0) game.screenFlash=null; }
+  if(game.waveAnnounce){ game.waveAnnounce.t-=dt; if(game.waveAnnounce.t<=0) game.waveAnnounce=null; }
   if(p.comboTimer<=0) game.combo=0;
 
   // 咖啡成瘾自动触发
@@ -1125,6 +1128,24 @@ function drawBossPatrol(){
   ctx.beginPath();ctx.arc(bx,by,24,0,Math.PI*2);ctx.fill();
   ctx.font='28px sans-serif';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText('👔',bx,by);
 }
+function drawWaveAnnounce(){
+  if(!game.waveAnnounce) return;
+  const a = game.waveAnnounce;
+  const alpha = Math.min(1, a.t/0.5) * (a.t>0.5? 1 : a.t/0.5);
+  const scale = 1 + Math.sin(performance.now()/80)*0.05;
+  ctx.save();
+  ctx.globalAlpha = alpha;
+  ctx.textAlign='center'; ctx.textBaseline='middle';
+  ctx.font = `bold ${Math.round(64*scale)}px sans-serif`;
+  ctx.fillStyle='#fff';
+  ctx.shadowColor='rgba(255,255,255,0.8)'; ctx.shadowBlur=20;
+  ctx.fillText(a.text, W/2, H/2-30);
+  ctx.font='bold 20px sans-serif'; ctx.shadowBlur=10;
+  ctx.fillStyle='#ffd700';
+  ctx.fillText('⚡ WAVE INCOMING ⚡', W/2, H/2+25);
+  ctx.restore();
+}
+
 function drawPressureEffect(){
   if(game.state!==State.PLAYING&&game.state!==State.PAUSED)return;
   const p=game.player.pressure, maxP=PLAYER.maxPressure+game.player.maxPressureBonus;
@@ -1440,6 +1461,7 @@ function loop(ts){
   } else {
     drawWorkspace(); drawPlayer(); drawBullets(); drawEnemies(); drawParticles();
     drawBossPatrol(); drawHUD(); drawKpiEvent(); drawPressureEffect();
+    drawWaveAnnounce();
     if(game.state===State.PAUSED) drawPauseScreen();
     if(game.state===State.LEVEL_UP) drawLevelUpScreen();
     if(game.state===State.GAME_OVER) drawGameOverScreen();
